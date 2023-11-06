@@ -4,14 +4,43 @@ pragma solidity ^0.8.0;
 // Import the Ownable contract from OpenZeppelin to manage ownership
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-// Import SafeMath library to prevent overflows
+//prevent overflows
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-// Interface for the RNG Oracle
-interface IRNGOracle {
-    function requestRandomNumber() external returns (bytes32 requestId);
-    function getRandomNumber(bytes32 requestId) external view returns (uint256 randomNumber);
-}
+
+import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
+
+contract Blackjack is VRFConsumerBase {
+    bytes32 internal keyHash;
+    uint256 internal fee;
+
+    struct Game {
+        address player;
+        uint256 bet;
+        uint256[] playerHand;
+        uint256 dealerHand;
+    }
+
+    mapping(bytes32 => Game) private games;
+
+    event RandomNumberRequested(bytes32 indexed requestId, address indexed player);
+
+    constructor(address vrfCoordinator, address linkToken, bytes32 _keyHash, uint256 _fee) 
+        VRFConsumerBase(vrfCoordinator, linkToken)
+    {
+        keyHash = _keyHash;
+        fee = _fee; // fee depends on the network (LINK)
+    }
+
+    function getRandomNumber(uint256 userProvidedSeed) internal returns (bytes32 requestId) {
+        require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK - fill contract with faucet");
+        requestId = requestRandomness(keyHash, fee, userProvidedSeed);
+        emit RandomNumberRequested(requestId, msg.sender);
+    }
+
+    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
+        Game storage game = games[requestId];
+    }
 
 contract Blackjack is Ownable {
     using SafeMath for uint256;
