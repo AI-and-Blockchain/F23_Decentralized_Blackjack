@@ -1,4 +1,14 @@
 // SPDX-License-Identifier: MIT
+// BlackJack Chips ERC20 Token (BJT)
+// ---------------------------------
+// This is the equivalent of chips in a casino, all game 
+// play interactions uses BJT instead of ETH.
+// 
+// Tokenomics
+// ----------
+// - BJT will have the same decimal places (-18) as ETH
+// - The price of BJT to ETH 1:1, and will remain constant
+// - All minted BJT will be backed by the equivalent amount of ETH
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
