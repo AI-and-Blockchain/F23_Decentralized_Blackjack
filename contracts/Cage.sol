@@ -9,6 +9,8 @@
 // their ETH for the equivalent amount of BJT from the house. When the user
 // wants to swap BJT back to ETH, they'll have to first send the BJT to the house,
 // the house than burns the BJT and release the equivalent amount of ETH back to the user.
+// 
+// This Cage contract address holds all the available funds (ETH) in the gameplay circulation. 
 pragma solidity ^0.8.20;
 
 import "contracts/BJT.sol";
@@ -53,9 +55,8 @@ contract Cage {
     // user exchange ETH for chips
     function exchangeETHforBJT() public payable {
         require(auth.isVerified(msg.sender), "unauthorized");
-        require(msg.sender != owner, "the house cannot exchange for chips");
         // make sure the house has enough balance
-        require(token.balanceOf(owner) >= msg.value, "insufficient funds for the house");
+        require(token.balanceOf(address(this)) >= msg.value, "insufficient funds for the house");
         // transfer equivalent BJT from the house to the player
         token.transfer(msg.sender, msg.value);
         // logs event
@@ -63,20 +64,22 @@ contract Cage {
     }
 
     // user exchange chips for ETH
+    // user must call BlackJackToken.approve(<cage_address>, <amount>) before calling this function
     function exchangeBJTforETH(address payable _to, uint256 amount) public payable {
         require(auth.isVerified(msg.sender), "unauthorized");
-        require(msg.sender != owner, "the house should use the withdraw() function");
         // make sure the user has enough balance
         require(token.balanceOf(msg.sender) >= amount, "insufficient funds");
+        // make sure user has enough allowance for the Cage Contract
+        require(token.allowance(msg.sender, address(this)) >= amount, "insufficient allowance for the Cage from the User");
         // player transfer BJT back to the house
-        token.transferFrom(_to, owner, amount);
+        token.transferFrom(_to, address(this), amount);
         // make sure the house has enough balance
-        require(token.balanceOf(owner) >= amount, "insufficient funds for the house");
+        require(token.balanceOf(address(this)) >= amount, "insufficient funds for the house");
         // transfer equivalent ETH from the house to the player
         (bool sent, bytes memory data) = _to.call{value: amount}("");
         require(sent, "failed to redeem ether");
         // burn the token
-        token.burnFrom(owner, amount);
+        token.burn(amount);
         // logs event
         emit CashOut(msg.sender, msg.value);
     }
@@ -85,12 +88,12 @@ contract Cage {
     function withdraw(address payable _to, uint256 amount) public {
         require(msg.sender == owner, "unauthorized");
         // make sure house has enough balance
-        require(token.balanceOf(owner) >= amount);
+        require(token.balanceOf(address(this)) >= amount);
         // withdraw ETH to other address
         (bool sent, bytes memory data) = _to.call{value: amount}("");
         require(sent, "failed to redeem ether");
         // burn the token
-        token.burnFrom(owner, amount);
+        token.burn(amount);
         // logs event
         emit WithDraw(_to, amount);
     }

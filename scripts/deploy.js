@@ -33,25 +33,31 @@ async function deploy(name, args = []) {
     const mlBotAddr = accounts[0]
 
     try {
-        console.log('deploying contract BlackJackToken...')
-        const BJTContract = await deploy('BlackJackToken')
-        console.log(BJTContract.options.address)
 
-        console.log('deploying contract Authenticator...')
-        const AuthContract = await deploy('Authenticator', [ageVerifierAddr, mlBotAddr])
-        console.log(AuthContract.options.address)
+      console.log('START')
 
-        console.log('deploying contract Cage...')
-        const CageContract = await deploy('Cage', [BJTContract.options.address, AuthContract.options.address])
-        console.log(CageContract.options.address)
+      // deploy BlackJackToken (ERC20)
+      console.log('deploying contract BlackJackToken...')
+      const BJTContract = await deploy('BlackJackToken')
+      console.log(BJTContract.options.address)
 
-        // grant Cage module MINTER_ROLE
-        console.log('grant contract Cage the MINTER role...')
-        await BJTContract.methods.grantMinterRole(CageContract.options.address).send({from: accounts[0]})
+      // deploy Authenticator
+      console.log('deploying contract Authenticator...')
+      const AuthContract = await deploy('Authenticator', [ageVerifierAddr, mlBotAddr])
+      console.log(AuthContract.options.address)
 
-        console.log('DONE')
+      // deploy Cage
+      console.log('deploying contract Cage...')
+      const CageContract = await deploy('Cage', [BJTContract.options.address, AuthContract.options.address])
+      console.log(CageContract.options.address)
+
+      // grant Cage module MINTER_ROLE
+      console.log('grant contract Cage the MINTER role...')
+      await BJTContract.methods.grantMinterRole(CageContract.options.address).send({from: accounts[0]})
+
+      console.log('DONE')
 
     } catch (e) {
-        console.log(e.message)
+      console.log(e.message)
     }
 })()
