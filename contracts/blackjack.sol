@@ -1,121 +1,131 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
-// Import the Ownable contract from OpenZeppelin to manage ownership
-import "@openzeppelin/contracts/access/Ownable.sol";
-
-//prevent overflows
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import "./Authenticator.sol";
 
-
-import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
-
-contract Blackjack is VRFConsumerBase {
-    bytes32 internal keyHash;
-    uint256 internal fee;
-
-    struct Game {
-        address player;
-        uint256 bet;
-        uint256[] playerHand;
-        uint256 dealerHand;
-    }
-
-    mapping(bytes32 => Game) private games;
-
-    event RandomNumberRequested(bytes32 indexed requestId, address indexed player);
-
-    constructor(address vrfCoordinator, address linkToken, bytes32 _keyHash, uint256 _fee) 
-        VRFConsumerBase(vrfCoordinator, linkToken)
-    {
-        keyHash = _keyHash;
-        fee = _fee; // fee depends on the network (LINK)
-    }
-
-    function getRandomNumber(uint256 userProvidedSeed) internal returns (bytes32 requestId) {
-        require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK - fill contract with faucet");
-        requestId = requestRandomness(keyHash, fee, userProvidedSeed);
-        emit RandomNumberRequested(requestId, msg.sender);
-    }
-
-    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        Game storage game = games[requestId];
-    }
-
-contract Blackjack is Ownable {
+contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
     using SafeMath for uint256;
 
-    IRNGOracle public rngOracle;
-    
-    // Event emitted when a player places a bet
+    Authenticator private authenticator;
+    VRFCoordinatorV2Interface COORDINATOR;
+    uint64 s_subscriptionId;
+    bytes32 keyHash = 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c;
+    uint32 callbackGasLimit = 100000;
+    uint16 requestConfirmations = 3;
+    uint32 numWords = 1;
+    uint256[] public requestIds;
+    uint256 public lastRequestId;
+
     event BetPlaced(address indexed player, uint256 amount);
-    
-    // Event emitted when cards are dealt
-    event CardsDealt(address indexed player, uint256[] playerCards, uint256 dealerCard);
-
-    // Event emitted for player actions
     event PlayerAction(address indexed player, string action);
+    event CardsDealt(address indexed player, uint256[] playerCards, uint256 dealerCard);
+    event GameResult(address indexed player, uint256[] playerCards, uint256 dealerCard);
 
-    // Event emitted when the player's chips are swapped for ETH
-    event ChipsSwappedForEth(address indexed player, uint256 chipAmount);
-
-    // Event emitted when ETH is swapped for chips
-    event EthSwappedForChips(address indexed player, uint256 ethAmount);
-
-    constructor(IRNGOracle _rngOracle) {
-        rngOracle = _rngOracle;
+    struct GameRequest {
+        address player;
+        bool fulfilled;
+        uint256[] playerCards;
+        uint256 dealerCard;
     }
 
-    // Function to handle age verification
-    function verifyAge() external {
-        // Logic to verify player's age
+    mapping(uint256 => GameRequest) public gameRequests;
+
+    constructor(address authenticatorAddress, uint64 subscriptionId)
+        VRFConsumerBaseV2(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625)
+        ConfirmedOwner(msg.sender)
+    {
+        authenticator = Authenticator(authenticatorAddress);
+        COORDINATOR = VRFCoordinatorV2Interface(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625);
+        s_subscriptionId = subscriptionId;
     }
 
-    // Function to handle the swapping of ETH for game chips
-    function swapEthForChips() external payable {
-        // Logic to swap ETH for game chips
+    // Function to request dealing cards
+    function dealCards() external {
+        require(authenticator.isVerified(msg.sender), "Player not verified");
+        uint256 requestId = requestRandomWords();
+        gameRequests[requestId] = GameRequest({
+            player: msg.sender,
+            fulfilled: false,
+            playerCards: new uint256[](0),
+            dealerCard: 0
+        });
     }
 
-    // Function to handle the swapping of game chips for ETH
-    function swapChipsForEth(uint256 chipAmount) external {
-        // Logic to swap game chips for ETH
+    // Overridden fulfillRandomWords function
+    function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
+        require(gameRequests[_requestId].player != address(0), "Game request not found");
+
+        GameRequest storage request = gameRequests[_requestId];
+        request.fulfilled = true;
+        uint256[] memory dealtCards = dealCards(_randomWords[0]);
+        request.playerCards = new uint256[](2);
+        request.playerCards[0] = dealtCards[0];
+        request.playerCards[1] = dealtCards[1];
+        request.dealerCard = dealtCards[2];
+
+        emit GameResult(request.player, request.playerCards, request.dealerCard);
     }
 
-    // Function to place a bet
+    // Card dealing logic using random number
+    function dealCards(uint256 random) private pure returns (uint256[] memory) {
+        uint256[] memory deck = new uint256[](52);
+        bool[] memory cardPicked = new bool[](52);
+
+        // Initialize deck
+        for (uint256 i = 0; i < 52; i++) {
+            deck[i] = i + 1; // Cards numbered from 1 to 52
+        }
+
+        uint256[] memory dealtCards = new uint256[](3); // 2 player cards, 1 dealer card
+        uint256 index;
+        uint256 count = 0;
+
+        // Deal cards
+        while (count < 3) {
+            index = random % 52;
+            if (!cardPicked[index]) {
+                dealtCards[count] = deck[index];
+                cardPicked[index] = true;
+                count++;
+            }
+            random = uint256(keccak256(abi.encode(random))); // Generate a new pseudo-random number
+        }
+
+        return dealtCards;
+    }
+
+    // Function to request random words from Chainlink VRF
+    function requestRandomWords() internal returns (uint256 requestId) {
+        requestId = COORDINATOR.requestRandomWords(
+            keyHash,
+            s_subscriptionId,
+            requestConfirmations,
+            callbackGasLimit,
+            numWords
+        );
+        requestIds.push(requestId);
+        lastRequestId = requestId;
+    }
+
     function bet(uint256 amount) external {
-        // Logic for betting
+        require(authenticator.isVerified(msg.sender), "Player not verified");
+        // Betting logic...
         emit BetPlaced(msg.sender, amount);
     }
 
-    // Function to deal cards
-    function dealCards() external {
-        // Logic to deal cards
-    }
-
-    // Player action functions
     function hit() external {
-        // Logic for "hit" action
+        require(authenticator.isVerified(msg.sender), "Player not verified");
+        // Hit logic...
         emit PlayerAction(msg.sender, "hit");
     }
 
     function stand() external {
-        // Logic for "stand" action
+        require(authenticator.isVerified(msg.sender), "Player not verified");
+        // Stand logic...
         emit PlayerAction(msg.sender, "stand");
     }
-
-    function double() external {
-        // Logic for "double" action
-        emit PlayerAction(msg.sender, "double");
-    }
-
-    function split() external {
-        // Logic for "split" action
-        emit PlayerAction(msg.sender, "split");
-    }
-
-    function surrender() external {
-        // Logic for "surrender" action
-        emit PlayerAction(msg.sender, "surrender");
-    }
 }
-
