@@ -1,0 +1,61 @@
+<Grid container spacing={3}>
+        {/* Previous Games Section */}
+        <Grid item xs={12} md={3}>
+          <Paper>
+            <Box padding={2}>
+              <Typography variant="h6">Previous Games</Typography>
+              {/* Add content for previous games here */}
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Game Area Section */}
+        <Grid item xs={12} md={6}>
+          <Paper>
+            <Box padding={2}>
+              {/* Dealer Cards */}
+              <Typography variant="h6" align="center">Dealer</Typography>
+              {/* Placeholder for dealer cards */}
+              <Box display="flex" justifyContent="center" alignItems="center">
+                {/* Replace these divs with actual card components */}
+                <div>Card 1</div>
+                <div>Card 2</div>
+                {/* ... */}
+              </Box>
+              <Typography align="center">Sum: 17</Typography>
+
+              {/* Player Cards */}
+              <Typography variant="h6" align="center">My Cards</Typography>
+              <Box display="flex" justifyContent="center" alignItems="center">
+                {/* Replace these divs with actual card components */}
+                <div>Card 1</div>
+                <div>Card 2</div>
+                {/* ... */}
+              </Box>
+              <Typography align="center">Sum: 21</Typography>
+
+              {/* Game Actions */}
+              <Box display="flex" justifyContent="center" mt={2}>
+                <Button variant="contained" color="primary">Hit</Button>
+                <Button variant="contained" color="secondary">Stand</Button>
+                {/* ... more buttons as needed */}
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Game Information Section */}
+        <Grid item xs={12} md={3}>
+          <Paper>
+            <Box padding={2}>
+              <Typography variant="h6">Game Information</Typography>
+              <Typography>Address: 0xhfdkh4jh4j23</Typography>
+              <Typography>Bet: 1 eth</Typography>
+              <Typography>Encrypted Seed: 4567293857425243</Typography>
+              <Typography>Previous Action: Stand</Typography>
+              {/* AI Recommendation could be another component */}
+              <Typography>AI Recommendation: Unavailable</Typography>
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
