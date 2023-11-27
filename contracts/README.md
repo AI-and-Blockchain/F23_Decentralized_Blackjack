@@ -47,6 +47,11 @@ balanceOf(address account) public view virtual returns (uint256)
 ```
 Frontend applications can call this on the player's address to check their current BJT balance.
 
+```
+approve(address spender, uint256 value) public virtual returns (bool)
+```
+Frontend applications needs to call this on-behalf of the player before the smart contracts can use their BJT token. 
+
 
 ## Cage Module
 
@@ -85,6 +90,7 @@ exchangeBJTforETH(address payable _to, uint256 amount) public payable
 ```
 Frontend applications can call this after gameplay to allow user to exchange BJT back to ETH (cash-out).
 
+> frontend applications must call BlackJackToken.approve(<cage_address>, <amount>) on-behalf of the user before calling this function.
 
 ## BlackJack (core gameplay) Module
 
