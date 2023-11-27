@@ -4,7 +4,7 @@
 
 import 'web3-eth'
 
-async function deploy(name, args = []) {
+async function deploy(name, args = [], gas = 3000000) {
     // Note that the script needs the ABI which is generated from the compilation artifact.
     const metadata = JSON.parse(await remix.call('fileManager', 'getFile', `contracts/artifacts/${name}.json`))
     const accounts = await web3.eth.getAccounts()
@@ -18,7 +18,7 @@ async function deploy(name, args = []) {
 
     newContractInstance = await contract.send({
       from: accounts[0],
-      gas: 3000000,
+      gas,
       gasPrice: '30000000000'
     })
 
@@ -29,6 +29,8 @@ async function deploy(name, args = []) {
 (async () => {
     const accounts = await web3.eth.getAccounts()
 
+    // constants
+    const vrfSubscriptionId = '6941'
     const ageVerifierAddr = accounts[0]
     const mlBotAddr = accounts[0]
 
@@ -54,6 +56,11 @@ async function deploy(name, args = []) {
       // grant Cage module MINTER_ROLE
       console.log('grant contract Cage the MINTER role...')
       await BJTContract.methods.grantMinterRole(CageContract.options.address).send({from: accounts[0]})
+
+      // deploy BlackJack.sol
+      console.log('deploying contract BlackJack...')
+      const BlackJackContract = await deploy('BlackjackWithVRFv2', [vrfSubscriptionId, BJTContract.options.address], gas = 6000000)
+      console.log(BlackJackContract.options.address)
 
       console.log('DONE')
 

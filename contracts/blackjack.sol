@@ -5,9 +5,11 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import "./BJT.sol";
 
 contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
     using SafeMath for uint256;
+    BlackJackToken public bjtToken;
 
     VRFCoordinatorV2Interface COORDINATOR;
     uint64 s_subscriptionId;
@@ -52,15 +54,20 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
     mapping(uint256 => GameRequest) public gameRequests;
     mapping(address => GameOutcome[]) public gameHistories;
 
-    constructor(uint64 subscriptionId)
+    constructor(uint64 subscriptionId, address BJTAddr)
         VRFConsumerBaseV2(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625)
         ConfirmedOwner(msg.sender)
     {
         COORDINATOR = VRFCoordinatorV2Interface(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625);
         s_subscriptionId = subscriptionId;
+        bjtToken = BlackJackToken(BJTAddr);
     }
 
     function placeBet(uint256 betAmount) public {
+        require(bjtToken.balanceOf(msg.sender) >= betAmount, "Insufficient BJT balance");
+        require(bjtToken.allowance(msg.sender, address(this)) >= betAmount, "Blackjack contract not approved for the bet amount");
+        bjtToken.transferFrom(msg.sender, address(this), betAmount);
+
         uint256 requestId = requestRandomWords();
         gameRequests[requestId].player = msg.sender;
         gameRequests[requestId].fulfilled = false;
@@ -108,20 +115,25 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         require(request.playerHands[0].cards.length == 2, "Cannot split");
         require(request.playerHands[0].cards[0] == request.playerHands[0].cards[1], "Cards are not the same for splitting");
 
+        // Ensure the player has enough BJT tokens for the additional bet
+        uint256 additionalBet = request.playerHands[0].betAmount;
+        require(bjtToken.balanceOf(msg.sender) >= additionalBet, "Insufficient BJT balance for split");
+        bjtToken.transferFrom(msg.sender, address(this), additionalBet);
+
         uint256 splitCard = request.playerHands[0].cards[0];
         request.playerHands[0].cards[1] = getCard(requestId);
 
         PlayerHand memory newHand = PlayerHand({
             cards: new uint256[](2),
             hasStood: false,
-            betAmount: request.playerHands[0].betAmount
+            betAmount: additionalBet
         });
         newHand.cards[0] = splitCard;
         newHand.cards[1] = getCard(requestId);
-
         request.playerHands.push(newHand);
+        
     }
-    // ... [Previous parts of the contract]
+
 
     function hit(uint256 requestId, uint256 handIndex) public {
         GameRequest storage request = gameRequests[requestId];
@@ -231,6 +243,25 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         GameRequest storage request = gameRequests[requestId];
         PlayerHand storage hand = request.playerHands[handIndex];
 
+        // Calculate the dealer's and player's hand value
+        uint256 dealerHandValue = calculateHandValue(request.dealerCards);
+        uint256 playerHandValue = calculateHandValue(hand.cards);
+
+        // Determine the game outcome and handle BJT token transfer accordingly
+        if (playerHandValue <= 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
+            // Player wins - transfer winnings in BJT tokens
+            uint256 winnings = hand.betAmount.mul(2); // Assuming the player receives double the bet amount
+            bjtToken.transfer(request.player, winnings);
+            outcome = "Player wins";
+        } else if (playerHandValue > 21 || (dealerHandValue <= 21 && dealerHandValue > playerHandValue)) {
+            // Player loses - BJT tokens remain in the contract
+            outcome = "Player loses";
+        } else {
+            // Push - Player gets their bet back
+            bjtToken.transfer(request.player, hand.betAmount);
+            outcome = "Push";
+        }
+
         // Log the result of this hand
         GameOutcome memory result = GameOutcome({
             player: request.player,
@@ -251,7 +282,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
         if (allHandsFinished) {
             request.gameEnded = true;
-            emit GameEnded(request.player, "All hands resolved");
+            emit GameEnded(request.player, outcome);
         }
     }
 
@@ -267,8 +298,6 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         emit GameReset(request.player);
     }
 
-
-    // Utility function to find if there's an ace in the hand
     function hasAce(uint256[] memory cards) internal pure returns (bool) {
         for (uint256 i = 0; i < cards.length; i++) {
             if (cards[i] == 1) { // Ace is represented as 1
