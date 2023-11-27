@@ -226,7 +226,6 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
         return totalValue;
     }
-    // ... [Previous parts of the contract]
 
     function endGame(uint256 requestId, uint256 handIndex, string memory outcome) internal {
         GameRequest storage request = gameRequests[requestId];
@@ -268,9 +267,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         emit GameReset(request.player);
     }
 
-    // ... Additional helper functions and logic as needed
 
-    // Example: Utility function to find if there's an ace in the hand
+    // Utility function to find if there's an ace in the hand
     function hasAce(uint256[] memory cards) internal pure returns (bool) {
         for (uint256 i = 0; i < cards.length; i++) {
             if (cards[i] == 1) { // Ace is represented as 1
