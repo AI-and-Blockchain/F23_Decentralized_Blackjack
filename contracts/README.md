@@ -90,7 +90,7 @@ exchangeBJTforETH(address payable _to, uint256 amount) public payable
 ```
 Frontend applications can call this after gameplay to allow user to exchange BJT back to ETH (cash-out).
 
-> frontend applications must call BlackJackToken.approve(<cage_address>, <amount>) on-behalf of the user before calling this function.
+> frontend applications must call BlackJackToken.approve(<cage_address>, <bjt_amount>) on-behalf of the user before calling this function.
 
 ## BlackJack (core gameplay) Module
 
