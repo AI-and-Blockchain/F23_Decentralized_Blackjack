@@ -21,18 +21,77 @@ Author: Matthew Uryga
 '''
 
 import numpy as np
+from tqdm import tqdm
 import pickle as pkl
 import sys
 
-NUM_FEATS = 9
+dic = {0: 'stay     ', 1: 'hit      ', 2: 'double   ', 3: 'split    ', 4: 'surrender'}
 
-def generate_hands(num_hands):
+def generate_hands(num_hands, evs):
+	'''
+	function to generate hands and labels
+	'''
+	# create output matrix
+	hands = np.zeros((num_hands, 10))
+
+	# generate hand by hand
+	for i in tqdm(range(num_hands)):
+		# player total
+		hands[i, 0] = np.random.randint(27)
+
+		# dealer card
+		hands[i, 1] = np.random.randint(13)
+
+		# choose action
+		action = None
+
+		# if player total is even, allow split
+		if hands[i, 0] >= 9 and (hands[i, 0] - 5) % 2 == 0 and (hands[i, 0] - 5) >= 4:
+			action = np.random.randint(5)
+			hands[i, action+2] = 1
+		# otherwise do not allow split
+		else:
+			action = np.random.randint(4)
+
+			# adjust for indices
+			if action == 3:
+				action = 4
+			hands[i, action+2] = 1
+
+		# relative bet size
+		# generate betsize based on normal distribution around 1
+		bet = np.random.normal(1, 0.33)
+
+		# clip minimum bet size
+		if bet <= 0.1:
+			bet = 0.1
+
+		hands[i, 7] = bet
+
+		# true count from -8 to 8 inclusive
+		hands[i, 8] = np.random.randint(17) - 8
+
+		# attach label from EVS
+		ev = evs[int(hands[i, 8])][int(hands[i, 0]), int(hands[i, 1])]
+
+		hands[i, 9] = ev[action]
+	return hands
 
 
 def main():
-	hands = generate_hands(1_000)
-	print(hands[:9])
+	# load expected value matrix
+	evs = None
+	with open('expected_values.pkl', 'rb') as f:
+		evs = pkl.load(f)
 
+	print(evs[0][20])
+
+	# generate hands
+	hands = generate_hands(1_000, evs)
+	for h in hands[:25]:
+		print(f'{dic[np.argmax(h[2:7])]}\t{h[-1]:.4f}\t{h[8]}')
+
+	# dump to file
 	with open('sample_data.pkl', 'wb') as f:
 		pkl.dump(hands, f)
 

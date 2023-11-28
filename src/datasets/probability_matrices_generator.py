@@ -22,9 +22,10 @@ Author: Matthew Uryga
 import numpy as np
 import pickle as pkl
 import sys
+from tqdm import tqdm
 
 cards = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]
-STAY_ITER = 1000
+STAY_ITER = 5000
 
 def calc_new_total(total, card, is_soft):
 	'''
@@ -87,7 +88,7 @@ def generate_cards_from_count(tc):
 	# loop over every possible player total
 	# note that loops are done in reverse so that when calculating
 	# hit EV, the average of higher totals can be used
-	for i in reversed(range(evs.shape[0])):
+	for i in tqdm(reversed(range(evs.shape[0])), leave=False, total = 27):
 		# extract total from matrix indices
 		if i < 9:
 			is_soft = True
@@ -113,8 +114,8 @@ def generate_cards_from_count(tc):
 			# create probability array for random selection
 			# this accounts for true count
 			p = np.ones(13) / 13
-			p[0:5] /= (24 - tc) / 24
-			p[8:] /= (24 + tc) / 24
+			p[0:5] = (20 - tc) / 52 / 5
+			p[8:] = (20 + tc) / 52 / 5
 			for x in range(STAY_ITER):
 				# set up variables
 				d = dc
@@ -128,6 +129,9 @@ def generate_cards_from_count(tc):
 				# if dealer busts or player ends with higher total, ev +1
 				if d == 0 or pt > d:
 					running_ev[x] = 1
+				# if push, ev is 0
+				elif d == pt:
+					running_ev[x] = 0
 				# otherwise, ev -1
 				else:
 					running_ev[x] = -1
@@ -156,10 +160,8 @@ def generate_cards_from_count(tc):
 				running_ev[x] = np.max(evs[new_pt, j])
 
 			# set average EV, weighted for true count
-			evs[0:5] /= (24 - tc) / 24
-			evs[8:] /= (24 + tc) / 24
+			running_ev *= p * 13
 			evs[i, j, 1] = np.mean(running_ev)
-
 
 
 			# DOUBLE
@@ -183,8 +185,7 @@ def generate_cards_from_count(tc):
 				running_ev[x] = 2 * evs[new_pt, j, 0]
 
 			# set average EV, weighted for true count
-			evs[0:5] /= (24 - tc) / 24
-			evs[8:] /= (24 + tc) / 24
+			running_ev *= p * 13
 			evs[i, j, 2] = np.mean(running_ev)
 
 			# SPLIT
@@ -228,19 +229,19 @@ def generate_cards_from_count(tc):
 				continue
 
 			# otherwise, EV is best option of split total times 2
-			evs[i, j, 3] = 2 * np.max(evs[new_i//2, j])
+			evs[i, j, 3] = 2 * max(np.max(evs[new_i//2 + 5, j, :2]), np.max(evs[new_i//2 + 5, j, 3:]))
 
 	return evs
 
 
 def test():
 	x = generate_cards_from_count(0)
-	print(x[25, 3])
+	print(x[8, 5])
 
 
 def main():
 	evs = {}
-	for i in range(-8, 9):
+	for i in tqdm(range(-8, 9)):
 		evs[i] = generate_cards_from_count(i)
 
 	with open('expected_values.pkl', 'wb') as f:
