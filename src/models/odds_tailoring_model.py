@@ -7,7 +7,7 @@ Author: urygam | Matt Uryga
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from FFN_Model import FFN_Model
+from models.ffn_model import FFN_Model
 
 import numpy as np
 import sys

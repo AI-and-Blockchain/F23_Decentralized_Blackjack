@@ -7,7 +7,7 @@ Author: urygam | Matt Uryga
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from ffn_model import FFN_Model
+from models.ffn_model import FFN_Model
 
 import numpy as np
 import sys
@@ -32,7 +32,7 @@ class Cheat_Detection_Model(nn.Module):
 		self.lstm = nn.LSTM(in_len, 4*out_dim, num_layers=num_layers, batch_first=batch_first)
 
 		# create ffn to process lstm output into scalar
-		self.output_aggregator = FFN_Model(in_len, [in_len//4], 1)
+		self.output_aggregator = FFN_Model(4*out_dim, [out_dim//4], 1)
 
 	def forward(self, x):
 		'''
@@ -43,15 +43,15 @@ class Cheat_Detection_Model(nn.Module):
 		x = self.input_aggregator(x)
 
 		# reshape ffn output for lstm input
-		x = x.reshape(self.in_len,)
+		x = x.reshape(self.in_len, self.in_len)
 
 		# feed into lstm
 		_, (hn, _) = self.lstm(x)
 
 		# extract output from lstm
-		x = hn[0, :, :]
+		x = hn[0, :]
 
 		# feed into output aggregation ffn
-		x = self.output_aggregator(x)
+		# x = self.output_aggregator(x)
 
 		return x

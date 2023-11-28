@@ -1,3 +1,4 @@
 src/datasets/*.pkl
 .deps/
 contracts/artifacts/
+__pycache__/

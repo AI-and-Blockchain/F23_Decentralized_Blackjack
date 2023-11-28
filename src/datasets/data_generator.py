@@ -83,10 +83,10 @@ def main():
 		evs = pkl.load(f)
 
 	# generate hands
-	hands = generate_hands(1_000_000, evs)
+	hands = generate_hands(10_000, evs)
 
 	# dump to file
-	with open('sample_data.pkl', 'wb') as f:
+	with open('train_data.pkl', 'wb') as f:
 		pkl.dump(hands, f)
 
 
