@@ -94,7 +94,74 @@ Frontend applications can call this after gameplay to allow user to exchange BJT
 
 ## BlackJack (core gameplay) Module
 
-TBD
+# BlackjackWithVRFv2
+
+`BlackjackWithVRFv2` is a blockchain-based blackjack game implemented in Solidity, using Chainlink's VRF (Verifiable Random Function) for random number generation. This project integrates the use of a custom token, BlackJackToken (BJT), for betting and payouts.
+
+## Features
+
+- Implementing blackjack game rules including split, hit, stand, and dealer play.
+- Integration with Chainlink VRF for fair random number generation.
+- Support for multiple hands and players.
+- Utilizes BJT tokens for betting and rewards.
+
+## Setup Instructions
+
+### Prerequisites
+
+- [MetaMask](https://metamask.io) installed and set up in your browser.
+- Access to a testnet (like sepoliaETH) with test ETH and [LINK tokens](https://faucets.chain.link/sepolia).
+- [Remix IDE](http://remix.ethereum.org) for deploying and interacting with smart contracts.
+
+### Using Remix with MetaMask
+
+1. **Open Remix IDE**
+   Go to [Remix IDE](http://remix.ethereum.org) in your web browser.
+
+2. **Load Your Contract**
+   In Remix, create a new file and paste your smart contract code into it.
+
+3. **Compile the Contract**
+   - Go to the Solidity compiler tab in Remix.
+   - Select the correct compiler version (^0.8.20).
+   - Click on "Compile".
+
+4. **Deploy the Contract**
+   - Switch to the "Deploy & Run Transactions" tab.
+   - Connect to your MetaMask wallet.
+   - Select the appropriate testnet where you have test ETH.
+   - Deploy the contract by clicking on "Deploy".
+
+### Configuring the Blackjack Contract
+
+1. **BJT Token Address**
+   Deploy the `BJT` token contract first and copy its deployed address.
+
+2. **Chainlink VRF Subscription**
+   Ensure you have a Chainlink VRF subscription ID ready (e.g., `6941`).
+
+3. **Initialize the Blackjack Contract**
+   Once the Blackjack contract is deployed, call its constructor or an initialization function with the BJT token address and Chainlink VRF subscription ID.
+
+### Interaction with the Contract
+
+Use Remix's deployed contract interface to interact with your contract's functions:
+
+- `placeBet`: To place a bet.
+- `hit`: To draw another card.
+- `stand`: To stand on the current hand.
+- `split`: To split the hand, if applicable.
+
+### Public View Functions
+
+These functions can be used to check the current game status:
+
+- `getGameState`: Returns the current state of the game.
+- `getGameRequest`: Returns details of a specific game request.
+- `getPlayerCards`: Returns the player's cards.
+- `getDealerCards`: Returns the dealer's cards.
+- `getGameHistory`: Returns the game history for a specific player.
+
 
 
 ## AI Module
