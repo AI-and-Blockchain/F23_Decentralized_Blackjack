@@ -3,7 +3,7 @@ import { useAuth } from './authprovider';
 import MetaMaskButton from './metamaskbutton';
 
 const InfoPanel = () => {
-    const { userAddress, signIn, betAmount, gameOutcome, gameInProgress, chainId } = useAuth();
+    const { userAddress, signIn, betAmount, gameOutcome, gameInProgress, chainId, awaitingContract, setAwaitingContract} = useAuth();
 
     const playTextStyle = {
         fontFamily: 'Agbalumo', 
@@ -36,8 +36,10 @@ const InfoPanel = () => {
                 <Typography variant="h6" style={playTextStyle}>Bet: {betAmount} wei</Typography>
                 <Typography variant="h6" style={playTextStyle}>Encrypted Seed: </Typography>
                 <Typography variant="h6" style={playTextStyle}>Chain ID: {chainId} </Typography>
+                <Typography variant="h6" style={playTextStyle}>Chain Connection: {awaitingContract ? "Awaiting Contract" : "Up-To-Date" } </Typography>
+                <Button onClick={() => setAwaitingContract(false)}>Override Waiting for Chain</Button>
                 <Typography variant="h6" style={playTextStyle}>Game Status:&nbsp;
-                {gameInProgress && !gameOutcome ? ("In Progress") : !gameInProgress && gameOutcome ? (gameOutcome) : ("Not Started")}
+                {gameInProgress && !gameOutcome ? ("In Progress") : gameOutcome ? (gameOutcome) : ("Not Started")}
                 </Typography>
                 </Box>
                 : <Box sx={{display: 'flex', flexDirection: 'column', width: '90%', alignItems: 'center', mt: 3}}>

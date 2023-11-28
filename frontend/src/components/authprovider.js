@@ -8,18 +8,27 @@ export function AuthProvider({ children }) {
     const [betAmount, setBetAmount] = useState(0);
     const [gameOutcome, setGameOutcome] = useState("");
     const [chainId, setChainId] = useState("");
+    const [gameHist, setGameHist] = useState([]);
+    const [awaitingContract, setAwaitingContract] = useState(false);
+
 
     const signIn = (credentials) => {
-        // Implement your sign-in logic here
         setUserAddress(credentials);
+        setAwaitingContract(true);
+        //updateGameHist
     };
 
     const setGameState = (gameState) => {
         setGameInProgress(gameState);
+        if (!gameState){
+            setGameHist([]);
+        }
     }
 
     const updateGameOutcome = (outcome) => {
         setGameOutcome(outcome);
+        setAwaitingContract(true);
+        setGameInProgress(false);
     }
 
     const updateBetAmount = (event, val) => {
@@ -31,10 +40,16 @@ export function AuthProvider({ children }) {
 
     const updateChainId = (val) => {
         setChainId(val);
+        setAwaitingContract(true);
     }
 
     return (
-        <AuthContext.Provider value={{ userAddress, signIn, gameInProgress, setGameState, betAmount, updateBetAmount, gameOutcome, updateGameOutcome, chainId, updateChainId }}>
+        <AuthContext.Provider value={{ userAddress, signIn, 
+        gameInProgress, setGameState, 
+        betAmount, updateBetAmount, 
+        gameOutcome, updateGameOutcome, 
+        chainId, updateChainId,
+        awaitingContract, setAwaitingContract }}>
             {children}
         </AuthContext.Provider>
     );

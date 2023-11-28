@@ -1,0 +1,48 @@
+{
+    "betAmount": "10eth",
+    "gameHistory": [
+      {
+        "round": 1,
+        "playerHand": ["10 of Hearts", "Ace of Hearts"],
+        "dealerHand": ["7 of Clubs", "Hidden"],
+        "actions": ["Double Down"],
+        "traits": ["Double Down"],
+        "outcome": {}
+      },
+      {
+        "round": 2,
+        "playerHand": ["10 of Hearts", "Ace of Hearts"],
+        "dealerHand": ["7 of Clubs", "Hidden"],
+        "actions": ["Double Down", "Hit"],
+        "traits": ["Double Down"],
+        "outcome": {}
+      },
+      {
+        "round": 3,
+        "playerHand": ["10 of Hearts", "Ace of Hearts", "King of Hearts"],
+        "dealerHand": ["7 of Clubs", "Hidden"],
+        "actions": ["Double Down", "Hit", "Stand"],
+        "traits": ["Double Down"],
+        "outcome": {}
+      },
+      {
+        "round": 4,
+        "playerHand": ["10 of Hearts", "Ace of Hearts", "King of Hearts"],
+        "dealerHand": ["5 of Clubs", "King of Diamonds"],
+        "actions": ["Double Down", "Hit", "Stand", "Dealer Hit"],
+        "traits": ["Double Down"],
+        "outcome": {}
+      },
+      {
+        "round": 5,
+        "playerHand": ["10 of Hearts", "Ace of Hearts", "King of Hearts"],
+        "dealerHand": ["5 of Clubs", "King of Diamonds", "King of Spades"],
+        "actions": ["Double Down", "Hit", "Stand", "Dealer Hit", "Dealer Bust"],
+        "traits": ["Double Down"],
+        "outcome": {
+          "status": "Player Win",
+          "payout": 10
+        }
+      }
+    ]
+  }
