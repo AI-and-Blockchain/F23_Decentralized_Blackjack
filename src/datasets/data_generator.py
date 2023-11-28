@@ -25,8 +25,6 @@ from tqdm import tqdm
 import pickle as pkl
 import sys
 
-dic = {0: 'stay     ', 1: 'hit      ', 2: 'double   ', 3: 'split    ', 4: 'surrender'}
-
 def generate_hands(num_hands, evs):
 	'''
 	function to generate hands and labels
@@ -84,12 +82,8 @@ def main():
 	with open('expected_values.pkl', 'rb') as f:
 		evs = pkl.load(f)
 
-	print(evs[0][20])
-
 	# generate hands
-	hands = generate_hands(1_000, evs)
-	for h in hands[:25]:
-		print(f'{dic[np.argmax(h[2:7])]}\t{h[-1]:.4f}\t{h[8]}')
+	hands = generate_hands(1_000_000, evs)
 
 	# dump to file
 	with open('sample_data.pkl', 'wb') as f:
