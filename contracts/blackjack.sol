@@ -140,6 +140,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         require(request.player == msg.sender, "Not the player's game");
         require(handIndex < request.playerHands.length, "Invalid hand index");
         require(!request.playerHands[handIndex].hasStood, "Cannot hit on this hand");
+        require(calculateHandValue(request.playerHands[handIndex].cards) < 21);
         require(!request.gameEnded, "Game already ended");
 
         uint256 newCard = getCard(requestId);
@@ -221,6 +222,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
             uint256 cardValue = cards[i];
             if (cardValue > 10) {
                 cardValue = 10; // Face cards are worth 10
+                totalValue += cardValue;
             } else if (cardValue == 1) {
                 aces += 1; // Aces count as 1 initially
             } else {
