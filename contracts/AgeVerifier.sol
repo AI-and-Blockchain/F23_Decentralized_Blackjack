@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
 // The Age Verification Module
 // ------------------------
-// The authenticator module keeps track of which address
-// is authorized to play the game, by default all accounts 
-// are blacklisted, unless verified by the age verfication 
-// module. The owner has full control of the whitelist.
-// The AI cheat detection module will be able to auto-ban a
-// player via this contract suspicious activity is found.
+// age verification module to player's to authenticate themselves.
+// placeholder for the zk age verification that we failed to implement
 pragma solidity ^0.8.0;
 
 import "contracts/Authenticator.sol";
