@@ -23,9 +23,9 @@ const titleStyle = {
           <Typography variant="h6" style={titleStyle}>Game {gameId}</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <Typography>Bet: 10 wei</Typography>
+          <Typography>Bet: 10 BJT</Typography>
           <Typography>Game Outcome: Player Win</Typography>
-          <Typography>Payout: 20 wei</Typography>
+          <Typography>Payout: 20 BJT</Typography>
           <Typography>Dealer Hand: 10h 7s</Typography>
           <Typography>Player Hand: 9h 9c</Typography>
           <Typography>Address:</Typography>

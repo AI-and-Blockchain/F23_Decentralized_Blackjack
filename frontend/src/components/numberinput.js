@@ -41,7 +41,7 @@ export default function NumberInputBasic({label, placeholder, value, onChange })
       placeholder={placeholder}
       value={value}
       onChange={onChange}
-      endAdornment={<InputAdornment>wei</InputAdornment>}
+      endAdornment={<InputAdornment>BJT</InputAdornment>}
       min={0}
       max={500000}
     />

@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
     const [chainId, setChainId] = useState("");
     const [gameHist, setGameHist] = useState([]);
     const [awaitingContract, setAwaitingContract] = useState(false);
-
+    const [verified, setVerified] = useState(false);
 
     const signIn = (credentials) => {
         setUserAddress(credentials);
@@ -49,7 +49,8 @@ export function AuthProvider({ children }) {
         betAmount, updateBetAmount, 
         gameOutcome, updateGameOutcome, 
         chainId, updateChainId,
-        awaitingContract, setAwaitingContract }}>
+        awaitingContract, setAwaitingContract,
+        verified, setVerified }}>
             {children}
         </AuthContext.Provider>
     );
