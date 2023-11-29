@@ -11,10 +11,11 @@ This guide provides step-by-step instructions on how to set up and play the Blac
 
 ### Contract Addresses
 
-- **BJT Token**: `0x4B33942E2F889c2d2D6F20210789149b059E8Ab4`
-- **Auth Contract**: `0xD5b6d0D387c1DBdA3c885d809e66E373DA16F8Ea`
-- **Cage Contract**: `0x93ee266C087Ca49DCF555d784FF6FF8A8AE9EBbB`
-- **Blackjack Contract**: `0x1a2c1A2A6fDc7f8e4432E542270445a1cDF55148`
+- **BJT Token**: `0x6AF1a909Fdc2BbEdF8727D7482fa66607f6F464B`
+- **AGE Verify**: `0xB04bB44A685589EcCbC3Fc3215d4BD5F924c8dFe`
+- **Auth Contract**: `0x13Be49565C126AD6aFe76dBd22b2Aa75670240C0`
+- **Cage Contract**: `0xeD6a34A78bdEb71E33D9cD829917d34BF318C90a`
+- **Blackjack Contract**: `0x4bA29D99DB370e56c03AFF511CB0e5A1C42b4aA2`
 
 ### Initial Setup
 
