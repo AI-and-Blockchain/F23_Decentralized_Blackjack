@@ -31,6 +31,7 @@ async function deploy(name, args = [], gas = 3000000) {
 
     // constants
     const vrfSubscriptionId = '6941'
+    const cheatBotAddr = '0x7d7C347192168E19dd4a2d903C0ed587D684c6c4'
 
     try {
 
@@ -54,6 +55,10 @@ async function deploy(name, args = [], gas = 3000000) {
       // set AgeVerifier address for authenticator
       console.log('grant contract AgeVerifier permission to whitelist in Authenticator...')
       await AuthContract.methods.setAgeVerifier(AgeVerifierContract.options.address).send({from: accounts[0]});
+
+      // set cheatBot address for authenticator
+      console.log('grant contract cheat bot permission to blacklist in Authenticator...')
+      await AuthContract.methods.setCheatBot(cheatBotAddr).send({from: accounts[0]});
 
       // deploy Cage
       console.log('deploying contract Cage...')
