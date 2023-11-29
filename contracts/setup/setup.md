@@ -28,10 +28,10 @@ This guide provides step-by-step instructions on how to set up and play the Blac
 3. **Run `deploy.js`**:
    - Use the house account to run `deploy.js`. This script helps deploy Auth, BJT, Cage, and Blackjack contracts.
 
-4. **Whitelist Player Account**:
-   - Under the house account, copy the player's account address and go to Auth contract to whitelist the player. If not whitelisted, the contract won't work.
+4. **Verify Player Account**:
+   - With the player account, call `AgeVerifier.verifyAage(<age>)` to verify the player account. Only verified account will be able to interact with the gameplay contract.
 
-5. **Deposit to Cage**:
+6. **Deposit to Cage**:
    - The house needs to deposit money to the Cage. You can deposit, for example, 100 wei to ensure sufficient funds for swapping BJT tokens.
 
 ## Playing the Game
