@@ -53,6 +53,19 @@ approve(address spender, uint256 value) public virtual returns (bool)
 Frontend applications needs to call this on-behalf of the player before the smart contracts can use their BJT token. 
 
 
+## Age Verifier Module
+
+Verifies if user is over 21 years old and grant them authorization to play the game. 
+
+**Public Functions**
+
+```
+verifyAge(uint8 age) public returns (bool)
+```
+
+User should call this address with their age as input to be verified. Returns if the user is verified or not.
+
+
 ## Cage Module
 
 This is where the house deposits their funds and players swapping
@@ -94,7 +107,7 @@ Frontend applications can call this after gameplay to allow user to exchange BJT
 
 ## BlackJack (core gameplay) Module
 
-TBD
+see [setup](./setup/setup.md) for more info.
 
 
 ## AI Module

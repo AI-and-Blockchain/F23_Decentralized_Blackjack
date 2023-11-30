@@ -32,8 +32,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         uint256[] cards;
         bool hasStood;
         uint256 betAmount;
+        string[] actions;
     }
-
     struct GameRequest {
         address player;
         bool fulfilled;
@@ -44,11 +44,23 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         bool gameEnded;
     }
 
+    // struct GameOutcome {
+    //     address player;
+    //     uint256[] playerHand;
+    //     uint256[] dealerHand;
+    //     string outcome;
+    // }
+    struct Outcome {
+        string status;
+        uint256 payout;
+    }
     struct GameOutcome {
-        address player;
+        uint256 round;
+        uint256 betAmount;
         uint256[] playerHand;
         uint256[] dealerHand;
-        string outcome;
+        string[] actions;
+        Outcome outcome;
     }
 
     mapping(uint256 => GameRequest) public gameRequests;
@@ -80,7 +92,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         PlayerHand memory newHand = PlayerHand({
             cards: new uint256[](2),
             hasStood: false,
-            betAmount: betAmount
+            betAmount: betAmount,
+            actions: new string[](0)
         });
         gameRequests[requestId].playerHands.push(newHand);
 
@@ -101,6 +114,10 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         request.dealerCards[0] = request.dealerCard;
 
         emit CardsDealt(request.player, request.playerHands[0].cards, request.dealerCard);
+        if (calculateHandValue(request.playerHands[0].cards) == 21) {
+            playDealerHand(_requestId);
+            finalizeHand(_requestId, 0);
+        }
     }
 
     // Implement split functionality
@@ -126,7 +143,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         PlayerHand memory newHand = PlayerHand({
             cards: new uint256[](2),
             hasStood: false,
-            betAmount: additionalBet
+            betAmount: additionalBet,
+            actions: new string[](0)
         });
         newHand.cards[0] = splitCard;
         newHand.cards[1] = getCard(requestId);
@@ -140,13 +158,24 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         require(request.player == msg.sender, "Not the player's game");
         require(handIndex < request.playerHands.length, "Invalid hand index");
         require(!request.playerHands[handIndex].hasStood, "Cannot hit on this hand");
+        require(calculateHandValue(request.playerHands[handIndex].cards) < 21, "Hand value already 21 or more");
         require(!request.gameEnded, "Game already ended");
 
         uint256 newCard = getCard(requestId);
         request.playerHands[handIndex].cards.push(newCard);
+        request.playerHands[handIndex].actions.push("hit"); // Remember to track the action
 
-        if (calculateHandValue(request.playerHands[handIndex].cards) > 21) {
-            endGame(requestId, handIndex, "Player bust");
+        uint256 handValue = calculateHandValue(request.playerHands[handIndex].cards);
+
+        if (handValue > 21) {
+            // Player busts
+            endGame(requestId, handIndex, "Player bust",false);
+            finalizeHand(requestId, 0);
+        } else if (handValue == 21) {
+            // If player hits 21, play dealer's hand and end the game
+            stand(requestId, handIndex); // Mark the player's hand as stood
+            playDealerHand(requestId);   // Play out the dealer's hand
+            finalizeHand(requestId, handIndex); // Finalize the hand
         }
     }
 
@@ -156,6 +185,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         require(handIndex < request.playerHands.length, "Invalid hand index");
         require(!request.gameEnded, "Game already ended");
 
+        request.playerHands[handIndex].actions.push("stand");
         request.playerHands[handIndex].hasStood = true;
 
         bool allHandsStood = true;
@@ -202,7 +232,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
             outcome = "Push";
         }
 
-        endGame(requestId, handIndex, outcome);
+        endGame(requestId, handIndex, outcome,false);
     }
 
     function getCard(uint256 requestId) private returns (uint256) {
@@ -221,6 +251,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
             uint256 cardValue = cards[i];
             if (cardValue > 10) {
                 cardValue = 10; // Face cards are worth 10
+                totalValue += cardValue;
             } else if (cardValue == 1) {
                 aces += 1; // Aces count as 1 initially
             } else {
@@ -239,35 +270,51 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         return totalValue;
     }
 
-    function endGame(uint256 requestId, uint256 handIndex, string memory outcome) internal {
+    function endGame(uint256 requestId, uint256 handIndex, string memory outcome, bool isSurrender) internal {
         GameRequest storage request = gameRequests[requestId];
         PlayerHand storage hand = request.playerHands[handIndex];
+        uint256 payout;
 
-        // Calculate the dealer's and player's hand value
-        uint256 dealerHandValue = calculateHandValue(request.dealerCards);
-        uint256 playerHandValue = calculateHandValue(hand.cards);
-
-        // Determine the game outcome and handle BJT token transfer accordingly
-        if (playerHandValue <= 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
-            // Player wins - transfer winnings in BJT tokens
-            uint256 winnings = hand.betAmount.mul(2); // Assuming the player receives double the bet amount
-            bjtToken.transfer(request.player, winnings);
-            outcome = "Player wins";
-        } else if (playerHandValue > 21 || (dealerHandValue <= 21 && dealerHandValue > playerHandValue)) {
-            // Player loses - BJT tokens remain in the contract
-            outcome = "Player loses";
+        if (isSurrender) {
+            // In case of surrender, refund half of the bet.
+            uint256 refundAmount = hand.betAmount / 2;
+            bjtToken.transfer(request.player, refundAmount);
+            outcome = "Player surrender";
+            payout = refundAmount; // Half the bet amount as the player surrendered
         } else {
-            // Push - Player gets their bet back
-            bjtToken.transfer(request.player, hand.betAmount);
-            outcome = "Push";
+            uint256 dealerHandValue = calculateHandValue(request.dealerCards);
+            uint256 playerHandValue = calculateHandValue(hand.cards);
+
+            if (playerHandValue <= 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
+                // Player wins
+                uint256 winnings = hand.betAmount * 2;
+                bjtToken.transfer(request.player, winnings);
+                outcome = "Player wins";
+                payout = winnings;
+            } else if (playerHandValue > 21 || (dealerHandValue <= 21 && dealerHandValue > playerHandValue)) {
+                // Player loses
+                outcome = "Player loses";
+                payout = 0;
+            } else {
+                // Push
+                bjtToken.transfer(request.player, hand.betAmount);
+                outcome = "Push";
+                payout = hand.betAmount;
+            }
         }
+
 
         // Log the result of this hand
         GameOutcome memory result = GameOutcome({
-            player: request.player,
+            round: requestId,
+            betAmount: hand.betAmount,
             playerHand: hand.cards,
             dealerHand: request.dealerCards,
-            outcome: outcome
+            actions: hand.actions, // You need to implement logic to track actions
+            outcome: Outcome({
+                status: outcome,
+                payout: payout
+            })
         });
         gameHistories[request.player].push(result);
 
@@ -317,16 +364,28 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         requestIds.push(requestId);
         lastRequestId = requestId;
     }
-    function getGameState(uint256 requestId) public view returns (uint256[][] memory playerHands, uint256[] memory dealerCards, string[] memory statuses) {
+    function surrender(uint256 requestId) public {
+        GameRequest storage request = gameRequests[requestId];
+        require(request.player == msg.sender, "Not the player's game");
+        require(request.playerHands.length == 1, "Surrender not allowed after split");
+        require(request.playerHands[0].cards.length == 2, "Surrender only allowed as first action");
+        require(!request.gameEnded, "Game already ended");
+        request.playerHands[0].actions.push("surrender");
+        endGame(requestId, 0, "Player surrender",true);
+    }
+
+    function getGameState(uint256 requestId) public view returns (uint256[][] memory playerHands, uint256[] memory dealerCards, string[] memory statuses,  uint256[] memory betSizes) {
         require(gameRequests[requestId].player != address(0), "Game request not found");
 
         GameRequest storage request = gameRequests[requestId];
         uint256 numHands = request.playerHands.length;
         playerHands = new uint256[][](numHands);
         statuses = new string[](numHands);
+        betSizes = new uint256[](numHands);
 
         for (uint256 i = 0; i < numHands; i++) {
             playerHands[i] = request.playerHands[i].cards;
+            betSizes[i] = request.playerHands[i].betAmount;
             uint256 playerHandValue = calculateHandValue(playerHands[i]);
             if (request.gameEnded) {
                 statuses[i] = "Game ended";
@@ -340,34 +399,72 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         }
 
         dealerCards = request.dealerCards;
-        return (playerHands, dealerCards, statuses);
+        return (playerHands, dealerCards, statuses, betSizes);
     }
-    function getGameRequest(uint256 requestId) public view returns (GameRequest memory) {
-        require(gameRequests[requestId].player != address(0), "Game request not found");
-        return gameRequests[requestId];
+    function uintArrayToString(uint256[] memory arr) internal pure returns (string memory) {
+    if (arr.length == 0) return "";
+
+    string memory result = toString(arr[0]);
+    for (uint256 i = 1; i < arr.length; i++) {
+        result = string(abi.encodePacked(result, ", ", toString(arr[i])));
     }
-    function getPlayerCards(uint256 requestId) public view returns (uint256[][] memory) {
-        require(gameRequests[requestId].player != address(0), "Game request not found");
+    return result;
+    }
 
-        GameRequest storage request = gameRequests[requestId];
-        uint256 numHands = request.playerHands.length;
-        uint256[][] memory allHands = new uint256[][](numHands);
+    function toString(uint256 _i) internal pure returns (string memory) {
+        if (_i == 0) {
+            return "0";
+        }
+        uint256 j = _i;
+        uint256 len;
+        while (j != 0) {
+            len++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(len);
+        uint256 k = len;
+        j = _i;
+        while (j != 0) {
+            bstr[--k] = bytes1(uint8(48 + j % 10));
+            j /= 10;
+        }
+        return string(bstr);
+    }
+    function stringArrayToString(string[] memory arr) internal pure returns (string memory) {
+        if (arr.length == 0) return "[]";
 
-        for (uint256 i = 0; i < numHands; i++) {
-            allHands[i] = request.playerHands[i].cards;
+        string memory result = "[\"";
+        result = string(abi.encodePacked(result, arr[0], "\""));
+
+        for (uint256 i = 1; i < arr.length; i++) {
+            result = string(abi.encodePacked(result, ", \"", arr[i], "\""));
         }
 
-        return allHands;
+        result = string(abi.encodePacked(result, "]"));
+        return result;
     }
-    function getDealerCards(uint256 requestId) public view returns (uint256[] memory) {
-        require(gameRequests[requestId].player != address(0), "Game request not found");
-        return gameRequests[requestId].dealerCards;
-    }
-    function getGameHistory(address player) public view returns (GameOutcome[] memory) {
-        return gameHistories[player];
-    }
-    function getRandomNumbersLength(uint256 requestId) public view returns (uint256) {
-        require(gameRequests[requestId].player != address(0), "Game request not found");
-        return gameRequests[requestId].randomNumbers.length;
+    function getGameHistory(address player) public view returns (string[] memory) {
+        GameOutcome[] memory outcomes = gameHistories[player];
+        string[] memory historyStrings = new string[](outcomes.length);
+
+        for (uint256 i = 0; i < outcomes.length; i++) {
+            string memory playerHand = uintArrayToString(outcomes[i].playerHand);
+            string memory dealerHand = uintArrayToString(outcomes[i].dealerHand);
+            string memory actions = stringArrayToString(outcomes[i].actions);
+            string memory round = toString(outcomes[i].round);
+            string memory betAmount = toString(outcomes[i].betAmount);
+            string memory outcome = string(abi.encodePacked(
+                "{ \"round\": ", round,
+                ", \"betAmount\": ", betAmount,
+                ", \"playerHand\": [", playerHand, "]",
+                ", \"dealerHand\": [", dealerHand, "]",
+                ", \"actions\": [", actions, "]",
+                ", \"outcome\": { \"status\": \"", outcomes[i].outcome.status,
+                "\", \"payout\": ", toString(outcomes[i].outcome.payout), " } }"
+            ));
+            historyStrings[i] = outcome;
+        }
+
+        return historyStrings;
     }
 }
