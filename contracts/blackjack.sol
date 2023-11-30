@@ -169,7 +169,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
         if (handValue > 21) {
             // Player busts
-            endGame(requestId, handIndex, "Player bust");
+            endGame(requestId, handIndex, "Player bust",false);
+            finalizeHand(requestId, 0);
         } else if (handValue == 21) {
             // If player hits 21, play dealer's hand and end the game
             stand(requestId, handIndex); // Mark the player's hand as stood
@@ -231,7 +232,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
             outcome = "Push";
         }
 
-        endGame(requestId, handIndex, outcome);
+        endGame(requestId, handIndex, outcome,false);
     }
 
     function getCard(uint256 requestId) private returns (uint256) {
@@ -269,33 +270,37 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         return totalValue;
     }
 
-    function endGame(uint256 requestId, uint256 handIndex, string memory outcome) internal {
+    function endGame(uint256 requestId, uint256 handIndex, string memory outcome, bool isSurrender) internal {
         GameRequest storage request = gameRequests[requestId];
         PlayerHand storage hand = request.playerHands[handIndex];
+        uint256 payout;
 
-        // Calculate the dealer's and player's hand value
-        uint256 dealerHandValue = calculateHandValue(request.dealerCards);
-        uint256 playerHandValue = calculateHandValue(hand.cards);
+        if (isSurrender) {
+            // In case of surrender, refund half of the bet.
+            uint256 refundAmount = hand.betAmount / 2;
+            bjtToken.transfer(request.player, refundAmount);
+            outcome = "Player surrender";
+            payout = refundAmount; // Half the bet amount as the player surrendered
+        } else {
+            uint256 dealerHandValue = calculateHandValue(request.dealerCards);
+            uint256 playerHandValue = calculateHandValue(hand.cards);
 
-        // Determine the game outcome and handle BJT token transfer accordingly
-        if (playerHandValue <= 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
-            // Player wins - transfer winnings in BJT tokens
-            uint256 winnings = hand.betAmount.mul(2); // Assuming the player receives double the bet amount
-            bjtToken.transfer(request.player, winnings);
-            outcome = "Player wins";
-        } else if (playerHandValue > 21 || (dealerHandValue <= 21 && dealerHandValue > playerHandValue)) {
-            // Player loses - BJT tokens remain in the contract
-            outcome = "Player loses";
-        } else {
-            // Push - Player gets their bet back
-            bjtToken.transfer(request.player, hand.betAmount);
-            outcome = "Push";
-        }
-         uint256 payout;
-        if (keccak256(bytes(outcome)) == keccak256(bytes("Player wins"))) {
-            payout = hand.betAmount * 2;
-        } else {
-            payout = 0;
+            if (playerHandValue <= 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
+                // Player wins
+                uint256 winnings = hand.betAmount * 2;
+                bjtToken.transfer(request.player, winnings);
+                outcome = "Player wins";
+                payout = winnings;
+            } else if (playerHandValue > 21 || (dealerHandValue <= 21 && dealerHandValue > playerHandValue)) {
+                // Player loses
+                outcome = "Player loses";
+                payout = 0;
+            } else {
+                // Push
+                bjtToken.transfer(request.player, hand.betAmount);
+                outcome = "Push";
+                payout = hand.betAmount;
+            }
         }
 
 
@@ -365,10 +370,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         require(request.playerHands.length == 1, "Surrender not allowed after split");
         require(request.playerHands[0].cards.length == 2, "Surrender only allowed as first action");
         require(!request.gameEnded, "Game already ended");
-        uint256 refundAmount = request.playerHands[0].betAmount / 2;
-        bjtToken.transfer(msg.sender, refundAmount);
         request.playerHands[0].actions.push("surrender");
-        endGame(requestId, 0, "Player surrender");
+        endGame(requestId, 0, "Player surrender",true);
     }
 
     function getGameState(uint256 requestId) public view returns (uint256[][] memory playerHands, uint256[] memory dealerCards, string[] memory statuses,  uint256[] memory betSizes) {
