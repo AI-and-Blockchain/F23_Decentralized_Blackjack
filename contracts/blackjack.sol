@@ -43,13 +43,6 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         uint256[] randomNumbers;
         bool gameEnded;
     }
-
-    // struct GameOutcome {
-    //     address player;
-    //     uint256[] playerHand;
-    //     uint256[] dealerHand;
-    //     string outcome;
-    // }
     struct Outcome {
         string status;
         uint256 payout;
@@ -65,6 +58,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
     mapping(uint256 => GameRequest) public gameRequests;
     mapping(address => GameOutcome[]) public gameHistories;
+    mapping(address => uint256[]) private userRequestIds;
+
 
     constructor(uint64 subscriptionId, address BJTAddr)
         VRFConsumerBaseV2(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625)
@@ -81,6 +76,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         bjtToken.transferFrom(msg.sender, address(this), betAmount);
 
         uint256 requestId = requestRandomWords();
+        userRequestIds[msg.sender].push(requestId);
         gameRequests[requestId].player = msg.sender;
         gameRequests[requestId].fulfilled = false;
         gameRequests[requestId].dealerCard = 0;
@@ -115,8 +111,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
         emit CardsDealt(request.player, request.playerHands[0].cards, request.dealerCard);
         if (calculateHandValue(request.playerHands[0].cards) == 21) {
+            request.gameEnded = true;
             playDealerHand(_requestId);
-            finalizeHand(_requestId, 0);
         }
     }
 
@@ -125,10 +121,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         GameRequest storage request = gameRequests[requestId];
         require(request.player == msg.sender, "Not the player's game");
         require(!request.gameEnded, "Game already ended");
-        require(request.fulfilled, "Game not yet started");
 
         // Validate split conditions
-        require(request.playerHands.length == 1, "Splitting not possible");
         require(request.playerHands[0].cards.length == 2, "Cannot split");
         require(request.playerHands[0].cards[0] == request.playerHands[0].cards[1], "Cards are not the same for splitting");
 
@@ -169,13 +163,11 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
         if (handValue > 21) {
             // Player busts
-            endGame(requestId, handIndex, "Player bust",false);
             finalizeHand(requestId, 0);
         } else if (handValue == 21) {
             // If player hits 21, play dealer's hand and end the game
             stand(requestId, handIndex); // Mark the player's hand as stood
             playDealerHand(requestId);   // Play out the dealer's hand
-            finalizeHand(requestId, handIndex); // Finalize the hand
         }
     }
 
@@ -274,7 +266,9 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         GameRequest storage request = gameRequests[requestId];
         PlayerHand storage hand = request.playerHands[handIndex];
         uint256 payout;
-
+        uint256 dealerHandValue = calculateHandValue(request.dealerCards);
+        uint256 playerHandValue = calculateHandValue(hand.cards);
+        bool isPlayerBlackjack = (hand.cards.length == 2 && playerHandValue == 21);
         if (isSurrender) {
             // In case of surrender, refund half of the bet.
             uint256 refundAmount = hand.betAmount / 2;
@@ -282,10 +276,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
             outcome = "Player surrender";
             payout = refundAmount; // Half the bet amount as the player surrendered
         } else {
-            uint256 dealerHandValue = calculateHandValue(request.dealerCards);
-            uint256 playerHandValue = calculateHandValue(hand.cards);
 
-            if (playerHandValue <= 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
+            if (playerHandValue < 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
                 // Player wins
                 uint256 winnings = hand.betAmount * 2;
                 bjtToken.transfer(request.player, winnings);
@@ -295,6 +287,12 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
                 // Player loses
                 outcome = "Player loses";
                 payout = 0;
+            } else if (isPlayerBlackjack && dealerHandValue != 21) {
+                    // Player has a natural blackjack and dealer does not
+                    uint256 blackjackPayout = hand.betAmount * 3 / 2;
+                    bjtToken.transfer(request.player, blackjackPayout);
+                    outcome = "Player blackjack";
+                    payout = blackjackPayout;
             } else {
                 // Push
                 bjtToken.transfer(request.player, hand.betAmount);
@@ -367,10 +365,10 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
     function surrender(uint256 requestId) public {
         GameRequest storage request = gameRequests[requestId];
         require(request.player == msg.sender, "Not the player's game");
-        require(request.playerHands.length == 1, "Surrender not allowed after split");
         require(request.playerHands[0].cards.length == 2, "Surrender only allowed as first action");
         require(!request.gameEnded, "Game already ended");
         request.playerHands[0].actions.push("surrender");
+        request.gameEnded = true;
         endGame(requestId, 0, "Player surrender",true);
     }
 
@@ -466,5 +464,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         }
 
         return historyStrings;
+    }
+    function getRequestIdsForUser(address user) public view returns (uint256[] memory) {
+        return userRequestIds[user];
     }
 }
