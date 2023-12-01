@@ -1,5 +1,13 @@
 import { Container, Paper, Grid, Typography, Button, Box } from '@mui/material';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import LinearProgress from '@mui/material/LinearProgress';
+import contractABI from './../pages/api/setVerifiedABI.json';
+import cageABI from './../pages/api/cageABI.json';
+import bjtABI from './../pages/api/bjtABI.json';
+import gameABI from './../pages/api/gameABI.json';
+
+import { checkBalance } from './checkBalance';
+import { ethers } from 'ethers';
 
 import { styled } from '@mui/material/styles';
 import NumberInputBasic from './numberinput';
@@ -8,17 +16,24 @@ import Divider from '@mui/material/Divider';
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
 import gameHistoryData from './gamestate.json';
+import { checkGameHistory } from './checkGameHistory';
 import { useAuth } from './authprovider';
 import { useState, useEffect } from 'react';
 
 const GameComponent = () => {
 
-    const { gameInProgress, setGameState,
+    const { gameInProgress, gameState, setGameState,
         userAddress, betAmount,
-        updateBetAmount, gameOutcome,
+        setBetAmount, gameOutcome,
         updateGameOutcome,
         awaitingContract, setAwaitingContract,
-        verified, setVerified } = useAuth();
+        verified, setVerified,
+        checkingVerified,
+        userBalance, setUserBalance,
+        requestId, setRequestId,
+        dealerCardsTemp, setDealerCardsTemp,
+        playerCardsTemp, setPlayerCardsTemp
+    } = useAuth();
 
     const [hasStood, setHasStood] = useState(false);
     const [playerStatus, setPlayerStatus] = useState("");
@@ -31,6 +46,8 @@ const GameComponent = () => {
     const [age, setAge] = useState(null);
     const [buyingBJT, setBuyingBJT] = useState(1);
     const [sellingBJT, setSellingBJT] = useState(0);
+    const [dealerCards, setDealerCards] = useState([]);
+    const [playerCards, setPlayerCards] = useState([]);
 
     const calculateAge = () => {
         if (!year || !month || !day) return;
@@ -173,34 +190,159 @@ const GameComponent = () => {
     //     disabled: awaitingContract ? 'true' : 'false'
     // });
 
+    function generateCardSets(hand) {
+        const suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
+        const faceCards = ['Jack', 'Queen', 'King'];
 
-    const [dealerCards, setDealerCards] = useState([]);
-    const [playerCards, setPlayerCards] = useState([]);
+        let usedCombinations = new Set(); // Track used combinations
+
+        // Function to generate a unique combination for a card
+        function generateUniqueCombination(card) {
+            let shuffledSuits = suits.sort(() => Math.random() - 0.5);
+            if (card == -1) {
+                return 'Hidden';
+            }
+
+            if (card === 1) {
+                for (let suit of shuffledSuits) {
+                    let combination = `Ace of ${suit}`;
+                    if (!usedCombinations.has(combination)) {
+                        usedCombinations.add(combination);
+                        return combination;
+                    }
+                }
+            }
+
+            for (let suit of shuffledSuits) {
+                let cardLabel = card === 10 ? '10' : card;
+                let combination = `${cardLabel} of ${suit}`;
+
+                if (!usedCombinations.has(combination)) {
+                    usedCombinations.add(combination);
+                    return combination;
+                }
+            }
+
+            // If 10, try Jack, Queen, King
+            if (card === 10) {
+                for (let face of faceCards) {
+                    for (let suit of shuffledSuits) {
+                        let combination = `${face} of ${suit}`;
+                        if (!usedCombinations.has(combination)) {
+                            usedCombinations.add(combination);
+                            return combination;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        return hand.map(generateUniqueCombination).filter(Boolean);
+    }
+
+
     const [dealerValue, setDealerValue] = useState(0);
     const [playerValue, setPlayerValue] = useState(0);
 
-    const addCardToPlayer = (cardName) => { //addCardToPlayer({ img: '/images/cards/ace_of_clubs.png', title: 'Ace of Clubs', val: 1});
-        const imageName = cardName.toLowerCase().replace(/\s+/g, '_') + '.png';
+    const addCardsToPlayer = async (cardNames) => {
+        let updatedPlayerCards = [...playerCards];
 
-        const newCard = {
-            img: `/images/cards/${imageName}`, // Adjust the path as necessary
-            title: cardName,
-            animating: true
-        };
-        const updatedPlayerCards = [...playerCards, { ...newCard, animating: true }];
+        for (let i = 0; i < cardNames.length; i++) {
+            const cardName = cardNames[i];
+            const imageName = cardName.toLowerCase().replace(/\s+/g, '_') + '.png';
 
-        setPlayerCards(updatedPlayerCards);
-        const cardTitles = updatedPlayerCards.map(card => card.title);
-        setPlayerValue(calculateHandValue(cardTitles));
+            const newCard = {
+                img: `/images/cards/${imageName}`,
+                title: cardName,
+                animating: true
+            };
 
-        setAwaitingContract(true);
-        // After animation duration, remove the 'animating' property
-        setTimeout(() => {
+            setPlayerCards(prevPlayerCards => [...prevPlayerCards, newCard]);
+            updatedPlayerCards.push(newCard);
+            const cardTitles = [...playerCards, newCard].map(card => card.title);
+
+            setAwaitingContract(true);
+
+            // Wait for the animation to finish before continuing
+            await new Promise(resolve => setTimeout(resolve, 500)); // 0.5 second for each card's animation
+
             setPlayerCards(prevPlayerCards => prevPlayerCards.map((card, index) =>
                 index === prevPlayerCards.length - 1 ? { ...card, animating: false } : card
             ));
-        }, 500); // 0.5 second
+        }
+        setAwaitingContract(false);
+        const playerVal = calculateHandValue(updatedPlayerCards);
+        if (playerVal>21){
+            setPlayerStatus("Bust");
+        }
+        return updatedPlayerCards;
     };
+
+
+
+    const addCardsToDealer = async (cardNames) => {
+        let updatedDealerCards = [...dealerCards];
+        for (let i = 0; i < cardNames.length; i++) {
+            const cardName = cardNames[i];
+            const imageName = cardName.toLowerCase().replace(/\s+/g, '_') + '.png';
+
+            const newCard = {
+                img: `/images/cards/${imageName}`,
+                title: cardName,
+                animating: true
+            };
+
+            setDealerCards(prevDealerCards => [...prevDealerCards, newCard]);
+            updatedDealerCards.push(newCard);
+            const cardTitles = [...dealerCards, newCard].map(card => card.title);
+
+            setAwaitingContract(true);
+
+            await new Promise(resolve => setTimeout(resolve, 500)); // 0.5 second for each card's animation
+
+            // After animation, remove the 'animating' property for the last card
+            setDealerCards(prevDealerCards => prevDealerCards.map((card, index) =>
+                index === prevDealerCards.length - 1 ? { ...card, animating: false } : card
+            ));
+        }
+        setAwaitingContract(false);
+        const dealerVal = calculateHandValue(updatedDealerCards);
+        if (dealerVal>21){
+            setDealerStatus("Bust");
+        }
+        return updatedDealerCards;
+    };
+
+    // Runs when loading a new game
+    useEffect(() => {
+        const getValue = async () => {
+            const newPlayerCards = await addCardsToPlayer(generateCardSets(playerCardsTemp));
+            const newDealerCards = await addCardsToDealer(generateCardSets(dealerCardsTemp));
+            console.log("New player + dealer cards");
+            console.log(newPlayerCards);
+            console.log(newDealerCards);
+            setPlayerValue(calculateHandValue(newPlayerCards));
+            setDealerValue(calculateHandValue(newDealerCards));
+        }
+        if (gameInProgress && playerCardsTemp.length != 0) {
+            console.log("UseEffect");
+            console.log("Player Cards");
+            console.log(playerCardsTemp);
+            console.log("Dealer Cards:");
+            console.log(dealerCardsTemp);
+            if (playerCardsTemp) {
+                console.log(generateCardSets(playerCardsTemp))
+                console.log(generateCardSets(dealerCardsTemp))
+                getValue();
+                setPlayerCardsTemp([]);
+                setDealerCardsTemp([]);
+            }
+        }
+
+    }, [playerCardsTemp, dealerCardsTemp])
+
 
     const convertCardName = (cardName) => {
         return cardName.toLowerCase().replace(/\s+/g, '_');
@@ -211,7 +353,7 @@ const GameComponent = () => {
         let aceCount = 0;
 
         hand.forEach(card => {
-            const cardName = card.split(" ")[0];
+            const cardName = card.title.split(" ")[0];
             if (!isNaN(cardName)) {
                 // If the card is a number card, its value is the number itself
                 totalValue += parseInt(cardName, 10);
@@ -246,45 +388,188 @@ const GameComponent = () => {
         setPlayerValue(0);
     }
 
-    const loadGameHistory = () => {
 
-        // const history = {
-        //     "betAmount": "10eth",
-        //     "gameHistory": [
 
-        //     ]
-        //   }
-        const history = gameHistoryData;
-        const latestRound = history.gameHistory[history.gameHistory.length - 1];
+    async function checkGameState(requestId) {
+        try {
+            const response = await fetch('/api/getGameState', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ requestId: requestId })
+            });
 
-        if (latestRound && history.gameHistory.length > 0) {
-            setPlayerCards(latestRound.playerHand.map(card => ({ img: `/images/cards/${convertCardName(card)}.png`, title: card })));
-            setDealerCards(latestRound.dealerHand.map(card => ({ img: card !== "Hidden" ? `/images/cards/${convertCardName(card)}.png` : '/path/to/hidden.png', title: card })));
-            setDealerValue(calculateHandValue(latestRound.dealerHand));
-            setPlayerValue(calculateHandValue(latestRound.playerHand));
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-            if (latestRound.actions.includes("Stand")) {
-                setPlayerStatus("Stand");
-            } else if (latestRound.actions.includes("Bust")) {
-                setPlayerStatus("Bust");
+            const result = await response.json();
+            if (result.success) {
+                console.log('Response from contract:', result.data);
+                return result.data;
+            } else {
+                console.error('Error in contract call:', result.error);
             }
-            if (latestRound.actions.includes("Dealer Stand")) {
-                setDealerStatus("Stand");
-            } else if (latestRound.actions.includes("Dealer Bust")) {
-                setDealerStatus("Bust");
-            }
-            if (latestRound.outcome) {
-                setGameOutcomeTemp(latestRound.outcome.status);
-                setPayoutAmount(latestRound.outcome.payout);
-            }
-            if (!latestRound.outcome && latestRound.gameHistory.length > 0) {
-                setGameState(true);
-            }
+        } catch (error) {
+            console.error('Error calling the smart contract:', error);
         }
-    };
-    useEffect(() => {
-        loadGameHistory();
-    }, []);
+    }
+
+
+    async function hit() {
+        const contractAddressGame = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
+        setAwaitingContract(true);
+        if (!requestId) {
+            console.log("Invalid Request Id");
+            return;
+        }
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
+            console.log(requestId);
+            const response = await contract.hit(requestId, 0);
+            console.log('Response from contract:', response);
+
+            const receipt = await response.wait();
+            const newCardEvent = receipt.events?.find(e => e.event === 'NewCard');
+            if (newCardEvent) {
+                const { requestId, handIndex, newCard } = newCardEvent.args;
+                console.log(`New Card: ${newCard}, Hand Index: ${handIndex}, Request ID: ${requestId}`);
+                // Handle the NewCard event data here
+            } else {
+                console.log('NewCard event not found in the receipt');
+            }
+
+            // const gameState = await checkGameState(reqId);
+            // const playerHand = gameState[0][0];
+            // console.log([gameState[0][0][gameState[0][0].length - 1]]);
+            // addCardsToPlayer(generateCardSets([gameState[0][0][gameState[0][0].length - 1]])[0])
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        setAwaitingContract(false);
+    }
+    // useEffect(() => {
+    //     loadGameHistory();
+    // }, []);
+
+
+    async function enterAge() {
+        const contractAddress = "0xB04bB44A685589EcCbC3Fc3215d4BD5F924c8dFe";
+        setAwaitingContract(true);
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+            const response = await contract.verifyAge(age);
+            console.log('Response from contract:', response);
+            setVerified(response);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        setAwaitingContract(false);
+    }
+
+
+    async function buyBJT() {
+        const contractAddress = "0xeD6a34A78bdEb71E33D9cD829917d34BF318C90a";
+        setAwaitingContract(true);
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(contractAddress, cageABI, signer);
+
+            //const ethAmount = Math.round(buyingBJT*ethConversion*10000)/10000;
+            //const amountInWei = ethers.utils.parseEther(String(buyingBJT));
+            //console.log(amountInWei);
+            //const response = await contract.deposit({value: amountInWei});
+            let amountInWei = String(buyingBJT);
+            const response = await contract.exchangeETHforBJT({ value: amountInWei });
+            await response.wait();
+            const balance = await checkBalance(userAddress);
+            console.log('Response from contract:', response);
+            console.log(parseInt(balance.hex, 16));
+            setUserBalance(parseInt(balance.hex, 16));
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        setAwaitingContract(false);
+    }
+
+
+    async function sellBJT() {
+        const contractAddressCage = "0xeD6a34A78bdEb71E33D9cD829917d34BF318C90a";
+        const contractAddressBJT = "0x6AF1a909Fdc2BbEdF8727D7482fa66607f6F464B";
+        setAwaitingContract(true);
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(contractAddressCage, cageABI, signer);
+
+            const contractBJT = new ethers.Contract(contractAddressBJT, bjtABI, signer);
+
+            //const ethAmount = Math.round(buyingBJT*ethConversion*10000)/10000;
+            //const amountInWei = ethers.utils.parseEther(String(buyingBJT));
+            //console.log(amountInWei);
+            //const response = await contract.deposit({value: amountInWei});
+            // let amountInWei = String(sellingBJT);
+            const allowance = await contractBJT.approve(contractAddressCage, sellingBJT);
+            await allowance.wait();
+            console.log(allowance);
+            const response = await contract.exchangeBJTforETH(userAddress, sellingBJT);
+            await response.wait();
+            const balance = await checkBalance(userAddress);
+            console.log('Response from contract:', response);
+            console.log(parseInt(balance.hex, 16));
+            setUserBalance(parseInt(balance.hex, 16));
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        setAwaitingContract(false);
+    }
+
+
+
+    async function placeBet() {
+        const contractAddressGame = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
+        const contractAddressBJT = "0x6AF1a909Fdc2BbEdF8727D7482fa66607f6F464B";
+        const contractAddressCage = "0xeD6a34A78bdEb71E33D9cD829917d34BF318C90a";
+
+        setAwaitingContract(true);
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            // Working as of 12:32pm nov 10
+            const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
+
+            const contractBJT = new ethers.Contract(contractAddressBJT, bjtABI, signer);
+
+            const allowance = await contractBJT.approve(contractAddressGame, sellingBJT);
+            await allowance.wait();
+            const response = await contract.placeBet(betAmount);
+
+            await response.wait();
+
+            console.log('Response from contract:', response);
+            // console.log(parseInt(balance.hex, 16));
+            setUserBalance(userBalance - betAmount);
+            setUserBet(betAmount);
+            setGameState(true);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        setAwaitingContract(false);
+    }
+
+
 
     return (
         <Paper sx={{
@@ -338,14 +623,14 @@ const GameComponent = () => {
                             <ActionButton variant="outlined" onClick={() => updateGameOutcome(gameOutcomeTemp)}>Continue</ActionButton>
                         </Box> :
                         <Box sx={{ display: 'flex', flexDirection: 'row', mt: 3 }}>
-                            <ActionButton variant="outlined" disabled={awaitingContract ? true : false} onClick={() => addCardToPlayer("Ace of Hearts")}>Hit</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract ? true : false} onClick={() => {
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false} onClick={() => hit()}>Hit</ActionButton>
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false} onClick={() => {
                                 setPlayerStatus("Stand")
                                 setAwaitingContract(true);
                             }}>Stand</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract ? true : false}>Double-Down</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract ? true : false}>Insurance</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract ? true : false} color="error" onClick={() => {
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false}>Double-Down</ActionButton>
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false}>Insurance</ActionButton>
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false} color="error" onClick={() => {
                                 setGameState(false)
                                 updateGameOutcome("Surrender")
                             }}>Surrender</ActionButton>
@@ -386,89 +671,96 @@ const GameComponent = () => {
                                 aria-label="Bet amount"
                                 placeholder="Enter bet"
                                 value={betAmount}
-                                onChange={(event, val) => updateBetAmount(event, val)}
+                                maxVal={userBalance}
+                                onChange={(event, val) => setBetAmount(event, val)}
                             />
 
                             <Box sx={{ display: 'flex', flexDirection: 'row', mt: 3 }}>
-                                <ActionButton variant="outlined" onClick={() => setGameState(true)} disabled={awaitingContract ? true : false}>Play Blackjack</ActionButton>
-                                <ActionButton variant="outlined" disabled={betAmount == 0 && awaitingContract != 0 ? false : true} onClick={() => setGameState(true)} >Play With AI Assistance</ActionButton>
+                                <ActionButton variant="outlined" onClick={() => placeBet()} disabled={awaitingContract ? true : false}>Play Blackjack</ActionButton>
+                                <ActionButton variant="outlined" disabled={betAmount == 0 && !awaitingContract ? false : true} onClick={() => setGameState(true)} >Play With AI Assistance</ActionButton>
                             </Box>
                             <Typography variant="h3" style={playTextStyle} sx={{ mt: 5, mb: 3 }}>Exchange Blackjack Token (BJT)</Typography>
-                            <Box sx={{display: 'flex'}}>
-                                <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', mr: 3}}>
-                                <Typography variant="h5" style={playTextStyle} sx={{mb:2}}>Buy</Typography>
+                            <Box sx={{ display: 'flex' }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mr: 3 }}>
+                                    <Typography variant="h5" style={playTextStyle} sx={{ mb: 2 }}>Buy</Typography>
                                     <NumberInputBasic
                                         aria-label="Purchase BJT"
                                         placeholder="Enter Amount"
                                         value={buyingBJT}
+                                        maxVal={50000}
                                         onChange={(event, val) => setBuyingBJT(val)}
                                     />
-                                    <Typography variant="h5" style={playTextStyle} sx={{ mt: 2, }}>{buyingBJT} BJT = {(buyingBJT * 0.0001).toFixed(4)} ETH</Typography>
+                                    <Typography variant="h5" style={playTextStyle} sx={{ mt: 2, }}>{buyingBJT} BJT = {buyingBJT} WEI</Typography>
 
-                                    <ActionButton variant="outlined" sx={{ mt: 3 }} onClick={() => setAwaitingContract(true)} disabled={awaitingContract || buyingBJT == 0 ? true : false}>Purchase</ActionButton>
+                                    <ActionButton variant="outlined" sx={{ mt: 3 }} onClick={() => buyBJT()} disabled={awaitingContract || buyingBJT == 0 ? true : false}>Purchase</ActionButton>
                                 </Box>
-                                <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', ml: 3}}>
-                                <Typography variant="h5" style={playTextStyle} sx={{mb:2}}>Sell</Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', ml: 3 }}>
+                                    <Typography variant="h5" style={playTextStyle} sx={{ mb: 2 }}>Sell</Typography>
 
                                     <NumberInputBasic
                                         aria-label="Exchange BJT"
                                         placeholder="Enter Amount"
                                         value={sellingBJT}
+                                        maxVal={userBalance}
                                         onChange={(event, val) => setSellingBJT(val)}
                                     />
-                                    <Typography variant="h5" style={playTextStyle} sx={{ mt: 2, }}>{sellingBJT} BJT = {(sellingBJT * 0.0001).toFixed(4)} ETH</Typography>
+                                    <Typography variant="h5" style={playTextStyle} sx={{ mt: 2, }}>{sellingBJT} BJT = {sellingBJT} WEI</Typography>
 
-                                    <ActionButton variant="outlined" sx={{ mt: 3 }} onClick={() => setAwaitingContract(true)} disabled={awaitingContract || sellingBJT == 0 ? true : false}>Sell</ActionButton>
+                                    <ActionButton variant="outlined" sx={{ mt: 3 }} onClick={() => sellBJT()} disabled={awaitingContract || sellingBJT == 0 ? true : false}>Sell</ActionButton>
                                 </Box>
                             </Box>
 
 
-                        </>) : userAddress && !verified ? <>
-                            <Typography variant="h4" style={playTextStyle} sx={{ mt: 3 }}>Please Enter Date of Birth:</Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'row', width: "100%", justifyContent: "center", alignItems: 'center', mt: 2 }}>
-                                <FormControl variant="outlined" sx={{ width: "25%" }}>
-                                    <InputLabel>Month</InputLabel>
-                                    <Select label="Month" value={month} onChange={handleMonthChange}>
-                                        {/* Generate Months */}
-                                        {[...Array(12)].map((_, index) => (
-                                            <MenuItem key={index + 1} value={index + 1}>
-                                                {index + 1}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                                <FormControl variant="outlined" sx={{ width: "25%" }}>
-                                    <InputLabel>Day</InputLabel>
-                                    <Select label="Day" value={day} onChange={handleDayChange}>
-                                        {/* Generate Days */}
-                                        {[...Array(31)].map((_, index) => (
-                                            <MenuItem key={index + 1} value={index + 1}>
-                                                {index + 1}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                                <FormControl variant="outlined" sx={{ width: "25%" }}>
-                                    <InputLabel>Year</InputLabel>
-                                    <Select label="Year" value={year} onChange={handleYearChange}>
-                                        {/* Generate Years */}
-                                        {[...Array(70)].map((_, index) => {
-                                            const year = new Date().getFullYear() - index;
-                                            return (
-                                                <MenuItem key={year} value={year}>
-                                                    {year}
+                        </>) : userAddress && !verified ? (checkingVerified ? <>
+                            <Typography variant="h4" style={playTextStyle} sx={{ mt: 3 }}>Checking Verification Status...</Typography>
+                            <Typography variant="h6" style={playTextStyle}>Awaiting Contract Response</Typography>
+                            <Box sx={{ width: '90%', mt: 1 }}>
+                                <LinearProgress />
+                            </Box></> :
+                            <>
+                                <Typography variant="h4" style={playTextStyle} sx={{ mt: 3 }}>Please Enter Date of Birth:</Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'row', width: "100%", justifyContent: "center", alignItems: 'center', mt: 2 }}>
+                                    <FormControl variant="outlined" sx={{ width: "25%" }}>
+                                        <InputLabel>Month</InputLabel>
+                                        <Select label="Month" value={month} onChange={handleMonthChange}>
+                                            {/* Generate Months */}
+                                            {[...Array(12)].map((_, index) => (
+                                                <MenuItem key={index + 1} value={index + 1}>
+                                                    {index + 1}
                                                 </MenuItem>
-                                            );
-                                        })}
-                                    </Select>
-                                </FormControl>
-                            </Box>
-                            <ActionButton variant="outlined" sx={{ mt: 2 }} disabled={age != null && age > 17 ? false : true} onClick={() => {
-                                if (age > 17) {
-                                    setVerified(true);
-                                }
-                            }}>Submit</ActionButton>
-                        </> :
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl variant="outlined" sx={{ width: "25%" }}>
+                                        <InputLabel>Day</InputLabel>
+                                        <Select label="Day" value={day} onChange={handleDayChange}>
+                                            {/* Generate Days */}
+                                            {[...Array(31)].map((_, index) => (
+                                                <MenuItem key={index + 1} value={index + 1}>
+                                                    {index + 1}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl variant="outlined" sx={{ width: "25%" }}>
+                                        <InputLabel>Year</InputLabel>
+                                        <Select label="Year" value={year} onChange={handleYearChange}>
+                                            {/* Generate Years */}
+                                            {[...Array(70)].map((_, index) => {
+                                                const year = new Date().getFullYear() - index;
+                                                return (
+                                                    <MenuItem key={year} value={year}>
+                                                        {year}
+                                                    </MenuItem>
+                                                );
+                                            })}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                                <ActionButton variant="outlined" sx={{ mt: 2 }} disabled={age != null && age > 17 ? false : true} onClick={() => {
+                                    enterAge()
+                                }}>Submit</ActionButton>
+                            </>) :
                             <Typography variant="h4" style={playTextStyle}>Please Sign In With Wallet</Typography>
                         }
                     </Box>

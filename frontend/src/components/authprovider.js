@@ -11,6 +11,11 @@ export function AuthProvider({ children }) {
     const [gameHist, setGameHist] = useState([]);
     const [awaitingContract, setAwaitingContract] = useState(false);
     const [verified, setVerified] = useState(false);
+    const [checkingVerified, setCheckingVerified] = useState(false);
+    const [userBalance, setUserBalance] = useState(0);
+    const [requestId, setRequestId] = useState("");
+    const [dealerCardsTemp, setDealerCardsTemp] = useState([]);
+    const [playerCardsTemp, setPlayerCardsTemp] = useState([]);
 
     const signIn = (credentials) => {
         setUserAddress(credentials);
@@ -31,13 +36,6 @@ export function AuthProvider({ children }) {
         setGameInProgress(false);
     }
 
-    const updateBetAmount = (event, val) => {
-        const numericValue = Number(val);
-        if (numericValue >= 0) {
-          setBetAmount(numericValue);
-        }
-    };
-
     const updateChainId = (val) => {
         setChainId(val);
         setAwaitingContract(true);
@@ -46,11 +44,16 @@ export function AuthProvider({ children }) {
     return (
         <AuthContext.Provider value={{ userAddress, signIn, 
         gameInProgress, setGameState, 
-        betAmount, updateBetAmount, 
+        betAmount, setBetAmount, 
         gameOutcome, updateGameOutcome, 
         chainId, updateChainId,
         awaitingContract, setAwaitingContract,
-        verified, setVerified }}>
+        verified, setVerified,
+        checkingVerified, setCheckingVerified,
+        userBalance, setUserBalance,
+        requestId, setRequestId,
+        dealerCardsTemp, setDealerCardsTemp,
+        playerCardsTemp, setPlayerCardsTemp }}>
             {children}
         </AuthContext.Provider>
     );
