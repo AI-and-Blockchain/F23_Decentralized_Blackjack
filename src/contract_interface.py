@@ -3,8 +3,12 @@ import json
 import time
 import torch
 import pickle as pkl
+import numpy as np
 
 from models.cheat_detection_model import Cheat_Detection_Model
+
+# TEMP VARIABLE FOR AI-ASSISTANCE
+use_ai = True
 
 class Game_State:
 	'''
@@ -15,6 +19,9 @@ class Game_State:
 		self.dealer_cards = g[1][0]
 		self.status = g[2][0]
 		self.bet_size = g[3][0]
+
+		if not isinstance(self.dealer_cards, list):
+			self.dealer_cards = [self.dealer_cards]
 
 	def __repr__(self):
 		s = f'Player Cards: {self.player_cards}\n'
@@ -64,6 +71,28 @@ class Game_State:
 		self.player_total = sum_cards(self.player_cards)
 		self.dealer_total = sum_cards(self.dealer_cards)
 
+	def optimal(self):
+		'''
+		function to return indices of EV matrix for optimal action
+		'''
+		# parse totals
+		self.parse()
+
+		# determine if soft or hard total
+		if 1 in self.player_cards:
+			pt = self.player_total - 12
+		else:
+			pt = self.player_total + 5
+
+		# align dealer card with matrix indices
+		dc = self.dealer_cards[0]
+		if dc == 1:
+			dc == 12
+		else:
+			dc -= 2
+
+		return self.count, pt, dc
+
 class Contract_Interface:
 	'''
 	object to handle blockchain integration and core logic
@@ -81,7 +110,7 @@ class Contract_Interface:
 
 		# contract address for primary contract
 		contract_address = '0xBCf26b04b2069Cd1F670D05c811340e807De4C71'
-		auth_address = ''
+		auth_address = '0x13Be49565C126AD6aFe76dBd22b2Aa75670240C0'
 
 		# account address
 		self.account_address = '0xe1d63A4912A8A7A2971bC16a9fd3C8448B714a5e'
@@ -133,8 +162,7 @@ class Contract_Interface:
 		self.player_address = player_addr
 
 		# get history struct
-		hist = self.contract.functions.getGameHistory(player_addr)
-
+		hist = self.contract.functions.getGameHistory(player_addr).call()
 		for h in hist:
 			if h['round'] == self.request_id:
 				return h
@@ -254,38 +282,66 @@ class Contract_Interface:
 			while True:
 				# get request_id
 				request_id = self.get_request_id()
+				print(f'{request_id = }')
 
 				# if request_id has changed
-				if self.request_id != request_id:
-					# update request_id
-					self.request_id = request_id
+				if self.request_id == request_id:
+					time.sleep(1)
+					continue
 
-					# fetch game state
-					game_state = Game_State(self.getGameState())
+				# update request_id
+				self.request_id = request_id
 
-					# if the game has not ended, sleep and continue loop
-					if game_state.state != 'Game ended':
-						time.sleep(1)
-						continue
+				# fetch game state
+				game_state = Game_State(self.get_game_state())
+				print('Got State')
+				print(game_state)
 
-					# otherwise, game ended
-					# append to list of game states for the ai model
-					hist = self.get_game_history()
-					actions = hist['actions']
-					game_state.add_actions(actions)
-					game_state.parse()
+				# if ai-assistance is needed
+				if game_state.status == 'Game in progress' and use_ai:
+					# find optimal indices
+					count, pt, dc = game_state.optimal()
 
-					# generate data from game states
-					self.gen_data(game_state)
+					# extract optimal move
+					idx = np.argmax(self.evs[count][pt, dc])
 
-					# if there is enough data to run model
-					if len(self.data) >= 64:
-						# forward pass to get cheat likelihood
-						pred = self.predict()
+					# convert to action string
+					optimal_action = None
+					if idx == 0:
+						optimal_action = 'Stand'
+					elif idx == 1:
+						optimal_action = 'Hit'
+					elif idx == 2:
+						optimal_action = 'Double'
+					elif idx == 3:
+						optimal_action = 'Split'
+					elif idx == 4:
+						optimal_action = 'Surrender'
 
-						# if over a threshold, ban player
-						if pred > 1:
-							self.ban_player(self.player_address)
+					print(optimal_action)
+
+				# if the game has not ended, sleep and continue loop
+				if game_state.status != 'Game ended':
+					continue
+
+				# otherwise, game ended
+				# append to list of game states for the ai model
+				hist = self.get_game_history()
+				actions = hist['actions']
+				game_state.add_actions(actions)
+				game_state.parse()
+
+				# generate data from game states
+				self.gen_data(game_state)
+
+				# if there is enough data to run model
+				if len(self.data) >= 64:
+					# forward pass to get cheat likelihood
+					pred = self.predict()
+
+					# if over a threshold, ban player
+					if pred > 1:
+						self.ban_player(self.player_address)
 
 		except KeyboardInterrupt:
 			print('stopping primary game loop')
@@ -303,6 +359,7 @@ class Contract_Interface:
 def main():
 	a = Contract_Interface()
 	a.test()
+	a.game_loop()
 
 if __name__ == '__main__':
 	main()
