@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     // try {
       let provider;
     try {
-      provider = new ethers.providers.JsonRpcProvider("https://rpc.sepolia.org");
+      provider = new ethers.providers.JsonRpcProvider("https://ethereum-sepolia.publicnode.com");
       // Additional code to test the connection, like getting the latest block number
     } catch (error) {
       console.error("Error connecting to Sepolia RPC:", error);

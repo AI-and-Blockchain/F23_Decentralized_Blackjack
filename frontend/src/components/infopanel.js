@@ -40,7 +40,7 @@ const InfoPanel = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', alignItems: 'left', }}>
                         <Typography variant="h6" style={playTextStyle}>User Balance: {userBalance} BJT</Typography>
                         <Typography variant="h6" style={playTextStyle}>Bet: </Typography>
-                        <Typography variant="h6" style={playTextStyle} sx={{ml:5}}>{betAmount} BJT</Typography>
+                        {/* <Typography variant="h6" style={playTextStyle} sx={{ml:5}}>{betAmount} BJT</Typography> */}
                         <Typography variant="h6" style={playTextStyle} noWrap sx={{width: '90%'}}>Latest Request ID: {requestId}</Typography>
                         <Typography variant="h6" style={playTextStyle}>Chain ID: {chainId} </Typography>
                         <Typography variant="h6" style={playTextStyle}>Chain Connection: {awaitingContract ? "Awaiting Contract" : "Up-To-Date"} </Typography>

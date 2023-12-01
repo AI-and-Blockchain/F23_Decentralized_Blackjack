@@ -8,7 +8,7 @@ import { checkBalance } from './checkBalance';
 import { checkGameHistory } from './checkGameHistory';
 import gameABI from './../pages/api/gameABI.json';
 import requestIdsForUser from './../pages/api/requestIdsForUser';
-
+import { getRequestId } from './getRequestId';
 const MetaMaskButton = () => {
   const { userAddress, signIn,
     betAmount, setBetAmount,
@@ -37,7 +37,7 @@ const MetaMaskButton = () => {
               symbol: 'ETH',
               decimals: 18,
             },
-            rpcUrls: ['https://rpc.sepolia.org'],
+            rpcUrls: ["https://ethereum-sepolia.publicnode.com"],
             blockExplorerUrls: ['https://sepolia.etherscan.io/'],
             iconUrls: ['<URL_to_Sepolia_icon>']
           }],
@@ -129,31 +129,31 @@ const MetaMaskButton = () => {
   }
 
 
-  async function getRequestId(account) {
-    try {
-      const response = await fetch('/api/requestIdsForUser', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ account: account })
-      });
+  // async function getRequestId(account) {
+  //   try {
+  //     const response = await fetch('/api/requestIdsForUser', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({ account: account })
+  //     });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+  //     if (!response.ok) {
+  //       throw new Error(`HTTP error! status: ${response.status}`);
+  //     }
 
-      const result = await response.json();
-      if (result.success) {
-        console.log('Response from contract:', result.data);
-        return result.data;
-      } else {
-        console.error('Error in contract call:', result.error);
-      }
-    } catch (error) {
-      console.error('Error calling the smart contract:', error);
-    }
-  }
+  //     const result = await response.json();
+  //     if (result.success) {
+  //       console.log('Response from contract:', result.data);
+  //       return result.data;
+  //     } else {
+  //       console.error('Error in contract call:', result.error);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error calling the smart contract:', error);
+  //   }
+  // }
 
   function hexArrayToIntArray(array) {
     return array.map(item => parseInt(item.hex, 16));
@@ -177,16 +177,17 @@ const MetaMaskButton = () => {
           let reqId = await getRequestId(address);
 
           //console.log("Request Id: ", reqId);
-          if(reqId.length!=0){
+          if (reqId.length != 0) {
             console.log("Last Request Id: ", reqId[reqId.length - 1]);
-          
             setRequestId(reqId[reqId.length - 1].hex);
+            console.log("MM checkGameState:");
+            console.log(reqId);
             const gameState = await checkGameState(reqId);
             console.log("Game State:");
             console.log(JSON.stringify(gameState));
             if (gameState) {
               console.log(gameState[2][0]);
-              if (gameState[2][0] == "Game in progress" || gameState[2][0] == "Player bust") {
+              if (gameState[2][0] == "Game in progress") {
                 setGameState(true);
                 console.log(gameState[3][0]);
                 console.log("Bet Amount:", parseInt(gameState[3][0].hex, 16));

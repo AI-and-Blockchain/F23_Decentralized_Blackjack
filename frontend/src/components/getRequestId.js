@@ -1,19 +1,25 @@
-import { ethers } from 'ethers';
-import gameABI from './../pages/api/gameABI.json';
-
-export async function getRequestId(){
-    const contractAddressGame = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
+export async function getRequestId(account) {
     try {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-        const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
+      const response = await fetch('/api/requestIdsForUser', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ account: account })
+      });
 
-        const response = await contract.lastRequestId();
-        console.log('Response from contract:', response);
-        console.log(response.hex)
-        return response.toString()
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('Response from contract:', result.data);
+        return result.data;
+      } else {
+        console.error('Error in contract call:', result.error);
+      }
     } catch (error) {
-        console.error('Error:', error);
+      console.error('Error calling the smart contract:', error);
     }
-}
+  }

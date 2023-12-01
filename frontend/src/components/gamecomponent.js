@@ -19,6 +19,7 @@ import gameHistoryData from './gamestate.json';
 import { checkGameHistory } from './checkGameHistory';
 import { useAuth } from './authprovider';
 import { useState, useEffect } from 'react';
+import { getRequestId } from './getRequestId';
 
 const GameComponent = () => {
 
@@ -274,13 +275,11 @@ const GameComponent = () => {
         }
         setAwaitingContract(false);
         const playerVal = calculateHandValue(updatedPlayerCards);
-        if (playerVal>21){
+        if (playerVal > 21) {
             setPlayerStatus("Bust");
         }
         return updatedPlayerCards;
     };
-
-
 
     const addCardsToDealer = async (cardNames) => {
         let updatedDealerCards = [...dealerCards];
@@ -288,28 +287,29 @@ const GameComponent = () => {
             const cardName = cardNames[i];
             const imageName = cardName.toLowerCase().replace(/\s+/g, '_') + '.png';
 
-            const newCard = {
-                img: `/images/cards/${imageName}`,
-                title: cardName,
-                animating: true
-            };
+            if (cardName !== "Hidden" || updatedDealerCards.length == 1) {
+                const newCard = {
+                    img: `/images/cards/${imageName}`,
+                    title: cardName,
+                    animating: true
+                };
 
-            setDealerCards(prevDealerCards => [...prevDealerCards, newCard]);
-            updatedDealerCards.push(newCard);
-            const cardTitles = [...dealerCards, newCard].map(card => card.title);
+                setDealerCards(prevDealerCards => [...prevDealerCards, newCard]);
+                updatedDealerCards.push(newCard);
+                const cardTitles = [...dealerCards, newCard].map(card => card.title);
 
-            setAwaitingContract(true);
+                setAwaitingContract(true);
 
-            await new Promise(resolve => setTimeout(resolve, 500)); // 0.5 second for each card's animation
+                await new Promise(resolve => setTimeout(resolve, 500));
 
-            // After animation, remove the 'animating' property for the last card
-            setDealerCards(prevDealerCards => prevDealerCards.map((card, index) =>
-                index === prevDealerCards.length - 1 ? { ...card, animating: false } : card
-            ));
+                setDealerCards(prevDealerCards => prevDealerCards.map((card, index) =>
+                    index === prevDealerCards.length - 1 ? { ...card, animating: false } : card
+                ));
+            }
         }
         setAwaitingContract(false);
         const dealerVal = calculateHandValue(updatedDealerCards);
-        if (dealerVal>21){
+        if (dealerVal > 21) {
             setDealerStatus("Bust");
         }
         return updatedDealerCards;
@@ -320,6 +320,7 @@ const GameComponent = () => {
         const getValue = async () => {
             const newPlayerCards = await addCardsToPlayer(generateCardSets(playerCardsTemp));
             const newDealerCards = await addCardsToDealer(generateCardSets(dealerCardsTemp));
+            console.log(playerCardsTemp);
             console.log("New player + dealer cards");
             console.log(newPlayerCards);
             console.log(newDealerCards);
@@ -388,6 +389,9 @@ const GameComponent = () => {
         setPlayerValue(0);
     }
 
+    function hexArrayToIntArray(array) {
+        return array.map(item => parseInt(item.hex, 16));
+      }
 
 
     async function checkGameState(requestId) {
@@ -416,7 +420,6 @@ const GameComponent = () => {
         }
     }
 
-
     async function hit() {
         const contractAddressGame = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
         setAwaitingContract(true);
@@ -434,13 +437,34 @@ const GameComponent = () => {
             console.log('Response from contract:', response);
 
             const receipt = await response.wait();
-            const newCardEvent = receipt.events?.find(e => e.event === 'NewCard');
-            if (newCardEvent) {
-                const { requestId, handIndex, newCard } = newCardEvent.args;
-                console.log(`New Card: ${newCard}, Hand Index: ${handIndex}, Request ID: ${requestId}`);
-                // Handle the NewCard event data here
-            } else {
-                console.log('NewCard event not found in the receipt');
+            console.log("GC request id:");
+            console.log(requestId);
+            const gameState = await checkGameState([requestId]);
+            console.log("Game State:");
+            console.log(JSON.stringify(gameState));
+            if (gameState) {
+                const playerHand = gameState[0][0];
+                console.log([playerHand[playerHand.length - 1]]);
+                console.log("New Card: ");
+                console.log("Generating card out of: ");
+                console.log([playerHand[playerHand.length - 1]][0]);
+                console.log(generateCardSets(hexArrayToIntArray([playerHand[playerHand.length - 1]])));
+                const newCard = await addCardsToPlayer(generateCardSets(hexArrayToIntArray([playerHand[playerHand.length - 1]])));
+                console.log(gameState[2][0]);
+                console.log(gameState[3][0]);
+                console.log("Bet Amount:", parseInt(gameState[3][0].hex, 16));
+                setBetAmount(parseInt(gameState[3][0].hex, 16));
+                setPlayerValue(calculateHandValue(newCard));
+                // console.log(gameState[0][0]);
+                // console.log(hexArrayToIntArray(gameState[0]));
+                // console.log(gameState[1]);
+                // console.log(hexArrayToIntArray(gameState[1]));
+                // let dealerHand = hexArrayToIntArray(gameState[1]);
+                // if (dealerHand.length == 1) {
+                //     dealerHand.push(-1);
+                // }
+                // setPlayerCardsTemp(hexArrayToIntArray(gameState[0][0]));
+                // setDealerCardsTemp(dealerHand);
             }
 
             // const gameState = await checkGameState(reqId);
@@ -452,9 +476,6 @@ const GameComponent = () => {
         }
         setAwaitingContract(false);
     }
-    // useEffect(() => {
-    //     loadGameHistory();
-    // }, []);
 
 
     async function enterAge() {
@@ -551,17 +572,42 @@ const GameComponent = () => {
             const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
 
             const contractBJT = new ethers.Contract(contractAddressBJT, bjtABI, signer);
-
+            console.log("Starting Bet Contract");
             const allowance = await contractBJT.approve(contractAddressGame, sellingBJT);
             await allowance.wait();
+            console.log("Approval Confirmed");
+
             const response = await contract.placeBet(betAmount);
 
             await response.wait();
 
             console.log('Response from contract:', response);
+            let reqId = await getRequestId(userAddress);
+
+            console.log("Request Id: ", reqId);
+            console.log("Last Request Id: ", reqId[reqId.length - 1]);
+
+            setRequestId(reqId[reqId.length - 1].hex);
             // console.log(parseInt(balance.hex, 16));
+            const gameState = await checkGameState(reqId[reqId.length - 1].hex);
+            console.log("Game State:");
+            console.log(JSON.stringify(gameState));
+            setGameState(true);
+            console.log(gameState[3][0]);
+            console.log("Bet Amount:", parseInt(gameState[3][0].hex, 16));
+            setBetAmount(parseInt(gameState[3][0].hex, 16));
+            console.log(gameState[0][0]);
+            console.log(hexArrayToIntArray(gameState[0]));
+            console.log(gameState[1]);
+            console.log(hexArrayToIntArray(gameState[1]));
+            let dealerHand = hexArrayToIntArray(gameState[1]);
+            if (dealerHand.length == 1) {
+                dealerHand.push(-1);
+            }
+            setPlayerCardsTemp(hexArrayToIntArray(gameState[0][0]));
+            setDealerCardsTemp(dealerHand);
             setUserBalance(userBalance - betAmount);
-            setUserBet(betAmount);
+            setBetAmount(betAmount);
             setGameState(true);
         } catch (error) {
             console.error('Error:', error);
@@ -623,14 +669,14 @@ const GameComponent = () => {
                             <ActionButton variant="outlined" onClick={() => updateGameOutcome(gameOutcomeTemp)}>Continue</ActionButton>
                         </Box> :
                         <Box sx={{ display: 'flex', flexDirection: 'row', mt: 3 }}>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false} onClick={() => hit()}>Hit</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false} onClick={() => {
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false} onClick={() => hit()}>Hit</ActionButton>
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false} onClick={() => {
                                 setPlayerStatus("Stand")
                                 setAwaitingContract(true);
                             }}>Stand</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false}>Double-Down</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false}>Insurance</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus== 'Bust' ? true : false} color="error" onClick={() => {
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false}>Double-Down</ActionButton>
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false}>Insurance</ActionButton>
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false} color="error" onClick={() => {
                                 setGameState(false)
                                 updateGameOutcome("Surrender")
                             }}>Surrender</ActionButton>
@@ -672,7 +718,7 @@ const GameComponent = () => {
                                 placeholder="Enter bet"
                                 value={betAmount}
                                 maxVal={userBalance}
-                                onChange={(event, val) => setBetAmount(event, val)}
+                                onChange={(event, val) => setBetAmount(val)}
                             />
 
                             <Box sx={{ display: 'flex', flexDirection: 'row', mt: 3 }}>
