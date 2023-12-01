@@ -21,7 +21,7 @@ from models.odds_tailoring_model import Odds_Tailoring_Model
 batch_size = 64
 learning_rate = 0.000005
 progress_bar = True
-num_epochs = 50
+num_epochs = 25
 
 def main():
 	device = f'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -82,6 +82,14 @@ def main():
 	plt.xlabel('Epoch')
 	plt.ylabel('Sum Loss')
 	plt.show()
+
+	checkpoint = {
+		'epoch': epoch,
+		'loss': sum_loss,
+		'state_dict': model.state_dict(),
+		'optimizer': optimizer.state_dict(),
+	}
+	torch.save(checkpoint, f'cheat_detection_model.pth')
 
 
 
