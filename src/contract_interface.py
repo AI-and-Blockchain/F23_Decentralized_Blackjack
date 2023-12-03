@@ -109,7 +109,7 @@ class Contract_Interface:
 		auth_abi = json.load(open("auth_abi.json"))
 
 		# contract address for primary contract
-		contract_address = '0xBCf26b04b2069Cd1F670D05c811340e807De4C71'
+		contract_address = '0x2C389764F41b03e35bCbC1Bb5E6D5Ef74df4084d'
 		auth_address = '0x13Be49565C126AD6aFe76dBd22b2Aa75670240C0'
 
 		# account address
@@ -146,6 +146,8 @@ class Contract_Interface:
 
 		# load optimal action matrix for ai-assistance
 		self.evs = pkl.load(open('datasets/expected_values.pkl', 'rb'))
+
+		self.game_state = None
 
 	def get_request_id(self):
 		return self.contract.functions.lastRequestId().call()
@@ -280,22 +282,14 @@ class Contract_Interface:
 		try:
 			# continue checking until keyboard interrupt
 			while True:
+				time.sleep(0.1)
 				# get request_id
-				request_id = self.get_request_id()
-				print(f'{request_id = }')
-
-				# if request_id has changed
-				if self.request_id == request_id:
-					time.sleep(1)
-					continue
-
-				# update request_id
-				self.request_id = request_id
+				self.request_id = self.get_request_id()
 
 				# fetch game state
 				game_state = Game_State(self.get_game_state())
-				print('Got State')
-				print(game_state)
+				if str(game_state) != str(self.game_state):
+					print(game_state)
 
 				# if ai-assistance is needed
 				if game_state.status == 'Game in progress' and use_ai:
@@ -306,7 +300,7 @@ class Contract_Interface:
 					idx = np.argmax(self.evs[count][pt, dc])
 
 					# convert to action string
-					optimal_action = None
+					optimal_action = ''
 					if idx == 0:
 						optimal_action = 'Stand'
 					elif idx == 1:
@@ -318,11 +312,16 @@ class Contract_Interface:
 					elif idx == 4:
 						optimal_action = 'Surrender'
 
-					print(optimal_action)
+					if str(game_state) != str(self.game_state):
+						print(optimal_action)
+					with open('optimal_action.txt', 'w') as f:
+						f.write(optimal_action)
 
+				self.game_state = game_state
 				# if the game has not ended, sleep and continue loop
-				if game_state.status != 'Game ended':
+				if game_state.status != 'Game ended.':
 					continue
+
 
 				# otherwise, game ended
 				# append to list of game states for the ai model
@@ -356,19 +355,16 @@ class Contract_Interface:
 		x = self.contract.functions.gameRequests(lastRequestId).call()
 		print(x)
 
+
 def main():
 	a = Contract_Interface()
 	a.test()
-	# a.game_loop()
-	a.ban_player('0x14cE875a83a131b5b6d60ccA1AC137f40bA91d29')
+	# a.ban_player('0x14cE875a83a131b5b6d60ccA1AC137f40bA91d29')
+	a.game_loop()
 
 if __name__ == '__main__':
 	main()
 
 '''
-TODO
-ai-assistance
-	should send optimal play on every update when in progress
-	REST endpoint
 testing plan
 '''
