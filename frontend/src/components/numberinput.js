@@ -33,7 +33,7 @@ const NumberInput = React.forwardRef(function CustomNumberInput(
   );
 });
 
-export default function NumberInputBasic({label, placeholder, value, onChange }) {
+export default function NumberInputBasic({label, placeholder, value, onChange, maxVal }) {
 
   return (
     <NumberInput
@@ -41,9 +41,9 @@ export default function NumberInputBasic({label, placeholder, value, onChange })
       placeholder={placeholder}
       value={value}
       onChange={onChange}
-      endAdornment={<InputAdornment>wei</InputAdornment>}
+      endAdornment={<InputAdornment>BJT</InputAdornment>}
       min={0}
-      max={500000}
+      max={maxVal}
     />
   );
 }
