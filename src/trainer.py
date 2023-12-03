@@ -21,7 +21,7 @@ from models.odds_tailoring_model import Odds_Tailoring_Model
 batch_size = 64
 learning_rate = 0.000005
 progress_bar = True
-num_epochs = 25
+num_epochs = 4
 
 def main():
 	device = f'cuda:0' if torch.cuda.is_available() else 'cpu'

@@ -359,7 +359,8 @@ class Contract_Interface:
 def main():
 	a = Contract_Interface()
 	a.test()
-	a.game_loop()
+	# a.game_loop()
+	a.ban_player('0x14cE875a83a131b5b6d60ccA1AC137f40bA91d29')
 
 if __name__ == '__main__':
 	main()
@@ -369,5 +370,5 @@ TODO
 ai-assistance
 	should send optimal play on every update when in progress
 	REST endpoint
-test model
+testing plan
 '''
