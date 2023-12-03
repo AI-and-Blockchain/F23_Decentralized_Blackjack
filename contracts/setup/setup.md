@@ -15,7 +15,7 @@ This guide provides step-by-step instructions on how to set up and play the Blac
 - **AGE Verify**: `0xB04bB44A685589EcCbC3Fc3215d4BD5F924c8dFe`
 - **Auth Contract**: `0x13Be49565C126AD6aFe76dBd22b2Aa75670240C0`
 - **Cage Contract**: `0xeD6a34A78bdEb71E33D9cD829917d34BF318C90a`
-- **Blackjack Contract**: `0x1bb7C27dDf749087020805d52197806FAbB55247`
+- **Blackjack Contract**: `0x2C389764F41b03e35bCbC1Bb5E6D5Ef74df4084d`
 
 ### Initial Setup
 
