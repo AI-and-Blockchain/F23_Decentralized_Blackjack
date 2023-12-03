@@ -358,9 +358,10 @@ class Contract_Interface:
 
 def main():
 	a = Contract_Interface()
-	a.test()
-	# a.ban_player('0x14cE875a83a131b5b6d60ccA1AC137f40bA91d29')
 	a.game_loop()
+	# a.test()
+	# a.ban_player('0x14cE875a83a131b5b6d60ccA1AC137f40bA91d29') # steven
+	# a.ban_player(Web3.to_checksum_address('0xbb70ca6812002e077225e5421788cf53260cf82c')) # matthew
 
 if __name__ == '__main__':
 	main()

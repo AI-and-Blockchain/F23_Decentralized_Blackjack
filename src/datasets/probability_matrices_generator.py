@@ -248,4 +248,4 @@ def main():
 		pkl.dump(evs, f)
 
 if __name__ == '__main__':
-	main()
+	test()
