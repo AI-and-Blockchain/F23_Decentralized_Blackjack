@@ -1,0 +1,95 @@
+Date,Commit Hash,Target Module,Testing Functionality,Output,Expected Output,Result,FIX
+11/06/2023,f300017d6dccaab497076de0f8cf512b2c93353c,Authenticator,isVerified on a verified address,TRUE,TRUE,PASS,
+11/06/2023,f300017d6dccaab497076de0f8cf512b2c93353c,Authenticator,isVerified on a non-verfied address,FALSE,FALSE,PASS,
+11/06/2023,f300017d6dccaab497076de0f8cf512b2c93353c,Authenticator,whiteList an address using house address,isVerified returns TRUE,isVerified returns TRUE,PASS,
+11/06/2023,f300017d6dccaab497076de0f8cf512b2c93353c,Authenticator,blackList an address using house address,isVerified returns FALSE,isVerified returns FALSE,PASS,
+11/28/2023,4f854e66172f84cd59768572393952dd70bdfa64,AgeVerifier,verifyAge 21,isVerified returns TRUE,isVerified returns TRUE,PASS,
+11/28/2023,4f854e66172f84cd59768572393952dd70bdfa64,AgeVerifier,verifyAge 10,isVerified returns FALSE,isVerified returns FALSE,PASS,
+11/10/2023,5ac8dbec7183eef273dfdc69809db80b0211fdcb,Cage,exchangeETHforBJT with 10 ETH,user receives 10 BJT,user receives 10 BJT,PASS,
+11/10/2023,5ac8dbec7183eef273dfdc69809db80b0211fdcb,Cage,exchangeBJTforETH with 10 BJT,user receives 10 ETH,user receives 10 ETH,PASS,
+11/16/2023,eada2a483fef51ffdae630624300489355c7eb7c,BlackJack,fulfillRandomWords,NONE,Deck of random numbers,FAIL,
+11/16/2023,eada2a483fef51ffdae630624300489355c7eb7c,BlackJack,fulfillRandomWords,Deck of random numbers,Deck of random number,PASS,ChainLink Subscription Function require 12 LINK or above
+11/28/2023,bb1d98f121bdb1f94c5627d1b6f1ed0c6010be28,BlackJack,placeBet,"        gameRequests[requestId].player = 0x5F2f198046A8c2b06F1f8ff08959d373CCf29757;
+        gameRequests[requestId].fulfilled = true;
+        gameRequests[requestId].dealerCard = 7;
+        gameRequests[requestId].dealerCards = ['7'];
+        gameRequests[requestId].randomNumbers = [73495742151670718672857831642574511485511228665991040053893907728033311269676,
+61947238626678678914753207874616107667580554305371252031033676685516902900537,
+68679147817952880063990499105990730671777324270157821495977872662015707872748,
+6605001922283758982480585564534274003692405529364674433500376152152915686047,
+41171950570390117153293172509345764228832695330462926495498217344656423660766,
+12009892045201309321301075611211658698646529486771789707329811658384954373195,
+80169036608163623815814941817629769644203872776469723556128060434050230670893, ......]
+        gameRequests[requestId].gameEnded = false;","        gameRequests[requestId].player = 0x5F2f198046A8c2b06F1f8ff08959d373CCf29757;
+        gameRequests[requestId].fulfilled = true;
+        gameRequests[requestId].dealerCard = 7;
+        gameRequests[requestId].dealerCards = ['7'];
+        gameRequests[requestId].randomNumbers = [73495742151670718672857831642574511485511228665991040053893907728033311269676,
+61947238626678678914753207874616107667580554305371252031033676685516902900537,
+68679147817952880063990499105990730671777324270157821495977872662015707872748,
+6605001922283758982480585564534274003692405529364674433500376152152915686047,
+41171950570390117153293172509345764228832695330462926495498217344656423660766,
+12009892045201309321301075611211658698646529486771789707329811658384954373195,
+80169036608163623815814941817629769644203872776469723556128060434050230670893, ......]
+        gameRequests[requestId].gameEnded = false;",PASS,
+11/28/2023,bb1d98f121bdb1f94c5627d1b6f1ed0c6010be28,BlackJack,hit,"0:
+uint256[][]: playerHands 3,10,11","0:
+uint256[][]: playerHands 3,10,11",PASS,
+11/28/2023,bb1d98f121bdb1f94c5627d1b6f1ed0c6010be28,BlackJack,split,"0:
+uint256[][]: playerHands 5,6,7, playerHands 8,1,2,5,2","0:
+uint256[][]: playerHands 5,6,7, playerHands 8,1,2,5,2",PASS,
+11/28/2023,bb1d98f121bdb1f94c5627d1b6f1ed0c6010be28,BlackJack,playDealerHand,"1:
+uint256[]: dealerCards 9,9","1:
+uint256[]: dealerCards 9,9",PASS,
+11/28/2023,bb1d98f121bdb1f94c5627d1b6f1ed0c6010be28,BlackJack,stand,TRUE,TRUE,PASS,
+12/01/2023,95b8afce7de1cc16bbac1dc97d8b271ecaa5ee0b,BlackJack,getGameHistory,"string[]: { ""round"": 20262504215587297279257199459430490792506931035424724532264558013386287868281, ""betAmount"": 1, ""playerHand"": [7, 9], ""dealerHand"": [8], ""actions"": [[""surrender""]], ""outcome"": { ""status"": ""Player surrender"", ""payout"": 0 } }","string[]: { ""round"": 20262504215587297279257199459430490792506931035424724532264558013386287868281, ""betAmount"": 1, ""playerHand"": [7, 9], ""dealerHand"": [8], ""actions"": [[""surrender""]], ""outcome"": { ""status"": ""Player surrender"", ""payout"": 0 } }",PASS,
+12/01/2023,95b8afce7de1cc16bbac1dc97d8b271ecaa5ee0b,BlackJack,endgame,"2:
+string[]: statuses Game ended","2:
+string[]: statuses Game ended",PASS,
+12/01/2023,95b8afce7de1cc16bbac1dc97d8b271ecaa5ee0b,BlackJack,getGameState,"0:
+uint256[][]: playerHands 7,7,3
+1:
+uint256[]: dealerCards 9,9
+2:
+string[]: statuses Game ended
+3:
+uint256[]: betSizes 1","0:
+uint256[][]: playerHands 7,7,3
+1:
+uint256[]: dealerCards 9,9
+2:
+string[]: statuses Game ended
+3:
+uint256[]: betSizes 1",PASS,
+12/01/2023,95b8afce7de1cc16bbac1dc97d8b271ecaa5ee0b,BlackJack,insurance,TRUE,TRUE,PASS,
+11/27/2023,d99ea778f2e1e6a80851d55e3f87559fc9aa3d89,probability_matrices_generator,"generate_cards_from_count(0)[8, 5]","[0.778
+0.24081826
+0.376
+-1.
+-0.5]","[0.773
+0.245
+0.373
+-1.
+-0.5]","PASS 
+(Within margin of error for simulation)",
+11/30/2023,6d04a407382e053e81970bd86d1dfd286819153c,contract_interface,ban_player(),NONE,NONE,PASS,
+11/30/2023,6d04a407382e053e81970bd86d1dfd286819153c,contract_interface,get_request_id(),50172091746125980572267888214247697187646377361234348049034762908733961713525,50172091746125980572267888214247697187646377361234348049034762908733961713525,PASS,
+11/30/2023,6d04a407382e053e81970bd86d1dfd286819153c,contract_interface,get_game_state(),"['0xbB70CA6812002e077225E5421788cf53260cf82C', True, 7, True]","['0xbB70CA6812002e077225E5421788cf53260cf82C', True, 7, True]",PASS,
+11/30/2023,e2eacd46d7185e1f3306bf88ad279645bfd40386,contract_interface,game_loop(),NONE,NONE,"PASS
+Expected functionality is present and working",
+11/27/2023,50f4d714db0d79a0e9235d8f4cfd2b200217a5ed,trainer,main(),Trained model,Trained model,"PASS
+Trained model has reasonable accuracy on test set (92%)",
+11/30/2023,d99ea778f2e1e6a80851d55e3f87559fc9aa3d89,data_generator,generate_hands(),n data points with appropriate label,n data points with appropriate label,PASS,
+11/30/2023,d99ea778f2e1e6a80851d55e3f87559fc9aa3d89,probability_matrices_generator,calc_new_total(),count and new total from input cards,count and new total from input cards,PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,server,app,Setup server and init headers,Setup server and init headers,PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,server,/get_optimal_action,GET endpoint for optimal action (ai assistance),GET endpoint for optimal action (ai assistance),PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Contract integration - User Authentication,"Prompt correct, validates user if not banned. If banned, prevents user from placing new bets, but allows them to withdraw","Prompts the user to enter age when not verified. Once the user enters age, moves them to game screen",PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Gameplay Component - Load History,"Gameplay component loads the correct history from the blackjack component, re-simulates drawing cards",Game correctly loads state from smart contract given user address,PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Purchase BJT,"User can purchase BJT for an exchange rate of 1 BJT = 1 ETH, value correctly updates on smart contract",Users can buy BJT from the house,PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Sell BJT,"Users can sell BJT, correctly transferring the correct amount of ETH based on the amount of BJT exchanged",Users can sell BJT to the house,PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Contract Integration - loading,"Any contract integration that occurs happens behind a visible ""loading bar"", complete with relevant messages to display successes or errors, and blocks buttons to prevent sending more contracts out","Meaningful loading text is present, all actions are gated behind waiting for last contract to finish updating to chain",PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Gameplay component - hit,"Users can query the smart contract to hit, which animates the drawing of the new card. From there, game state is correctly updated, and can be loaded into history on disconnect. Automatically stands at 21, and prompts dealer to draw if bust","User can ""hit"" to draw a new card, increasing their value. Additionally, correctly accounts for the variable value of aces",PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Gameplay component - stand,"Can only be performed if user has not busted, prompts dealer to draw cards and then calculate game outcome, reflect game outcome, saves to gamestate and can be loaded back","User can ""stand"" to stop drawing cards, prompting the dealer to draw until 17.",PASS,
+12/03/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Gameplay component - surrender,"Can be performed at any time, ends the game and correctly rewards the user with half of their bet rounded down.","User can ""surrender"" to return half their bet and end the game",PASS,
+12/04/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Gameplay component - victory/loss/push,"Correctly pays the user based on outcome: 2:1 for regular victory, 3:1 for blackjack, 0:1 for loss. Tested and confirmed all game outcomes with varying bets",Users receive funds based on the outcome of the game and their bet,PASS,
+12/05/2023,29567c7db19bd058138bfdd60e680c4a13e16e9f,Frontend,Gameplay component - Insurance,"User can only insure when the dealer has an ace visible on the first turn, and correctly can bet up to half of their bet. ","User can insure against dealer getting a blackjack, placing up to half of bet for a payout of 2:1",PASS,
