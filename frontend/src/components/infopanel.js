@@ -5,7 +5,15 @@ import { useAuth } from './authprovider';
 import MetaMaskButton from './metamaskbutton';
 
 const InfoPanel = () => {
-    const { userAddress, signIn, betAmount, gameOutcome, gameInProgress, chainId, awaitingContract, setAwaitingContract, userBalance, requestId } = useAuth();
+    const { userAddress, signIn, 
+        betAmount, gameOutcome, 
+        gameInProgress, chainId, 
+        awaitingContract, setAwaitingContract, 
+        userBalance, requestId, 
+        awaitingContractMessage,
+        playingWithAI, setPlayingWithAI,
+        recommendation, setRecommendation
+     } = useAuth();
 
     const playTextStyle = {
         fontFamily: 'Agbalumo',
@@ -39,7 +47,7 @@ const InfoPanel = () => {
                 {userAddress ?
                     <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', alignItems: 'left', }}>
                         <Typography variant="h6" style={playTextStyle}>User Balance: {userBalance} BJT</Typography>
-                        <Typography variant="h6" style={playTextStyle}>Bet: </Typography>
+                        <Typography variant="h6" style={playTextStyle}>Bet: {betAmount}</Typography>
                         {/* <Typography variant="h6" style={playTextStyle} sx={{ml:5}}>{betAmount} BJT</Typography> */}
                         <Typography variant="h6" style={playTextStyle} noWrap sx={{width: '90%'}}>Latest Request ID: {requestId}</Typography>
                         <Typography variant="h6" style={playTextStyle}>Chain ID: {chainId} </Typography>
@@ -48,12 +56,13 @@ const InfoPanel = () => {
                         <Typography variant="h6" style={playTextStyle}>Game Status:&nbsp;
                             {gameInProgress && !gameOutcome ? ("In Progress") : gameOutcome ? (gameOutcome) : ("Not Started")}
                         </Typography>
+                        {playingWithAI ? <><Typography variant="h6"  style={playTextStyle}>AI Recommendation: {recommendation}</Typography></> : <></>}
                     </Box>
                     : <Box sx={{ display: 'flex', flexDirection: 'column', width: '90%', alignItems: 'center' }}>
                         <MetaMaskButton />
                     </Box>}
                 {awaitingContract ? <Box sx={{display: 'flex', flexDirection: 'column'}}>
-                    <Typography variant="h6" style={playTextStyle}>Awaiting Contract Response</Typography>
+                    <Typography variant="h6" style={playTextStyle}>{awaitingContractMessage}</Typography>
                     <Box sx={{ width: '90%', mt:1 }}>
                         <LinearProgress />
                     </Box>

@@ -18,11 +18,11 @@ export default async function handler(req, res) {
     }
 
     // Contract Information
-    const contractAddressGame = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
+    const contractAddressGame = "0x2C389764F41b03e35bCbC1Bb5E6D5Ef74df4084d";
 
     // Create a contract instance
     const contract = new ethers.Contract(contractAddressGame, gameABI, provider);
-
+    console.log("ACK");
     // Call the verifyAge function from your contract
     const response = await contract.getRequestIdsForUser(req.body.account);
     console.log(response);
@@ -31,5 +31,6 @@ export default async function handler(req, res) {
     res.status(200).json({ success: true, data: response });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+    console.log(error);
   }
 }

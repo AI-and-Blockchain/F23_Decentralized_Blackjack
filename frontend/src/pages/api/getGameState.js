@@ -16,7 +16,7 @@ export default async function handler(req, res) {
         }
 
         // Contract Information
-        const contractAddress = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
+        const contractAddress = "0x2C389764F41b03e35bCbC1Bb5E6D5Ef74df4084d";
 
         // // Create a contract instance
         const contract = new ethers.Contract(contractAddress, gameABI, provider);

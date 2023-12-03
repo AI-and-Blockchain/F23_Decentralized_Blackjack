@@ -1,18 +1,18 @@
 
-export async function checkGameHistory(accountVal) {
+export async function checkGameHistory(userAddress) {
     try {
         const response = await fetch('/api/getGameHistory', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ account: accountVal })
+            body: JSON.stringify({ name: userAddress })
         });
-  
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-  
+
         const result = await response.json();
         if (result.success) {
             console.log('Response from contract:', result.data);
@@ -23,5 +23,4 @@ export async function checkGameHistory(accountVal) {
     } catch (error) {
         console.error('Error calling the smart contract:', error);
     }
-  }
-  
+}

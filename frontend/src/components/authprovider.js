@@ -16,6 +16,11 @@ export function AuthProvider({ children }) {
     const [requestId, setRequestId] = useState("");
     const [dealerCardsTemp, setDealerCardsTemp] = useState([]);
     const [playerCardsTemp, setPlayerCardsTemp] = useState([]);
+    const [gameOutcomeTemp, setGameOutcomeTemp] = useState("");
+    const [payoutAmount, setPayoutAmount] = useState(0);
+    const [awaitingContractMessage, setAwaitingContractMessage] = useState("Awaiting Contract Response...");
+    const [playingWithAI, setPlayingWithAI] = useState(false);
+    const [recommendation, setRecommendation] = useState("");
 
     const signIn = (credentials) => {
         setUserAddress(credentials);
@@ -32,7 +37,7 @@ export function AuthProvider({ children }) {
 
     const updateGameOutcome = (outcome) => {
         setGameOutcome(outcome);
-        setAwaitingContract(true);
+        //setAwaitingContract(true);
         setGameInProgress(false);
     }
 
@@ -45,6 +50,7 @@ export function AuthProvider({ children }) {
         <AuthContext.Provider value={{ userAddress, signIn, 
         gameInProgress, setGameState, 
         betAmount, setBetAmount, 
+        gameHist, setGameHist,
         gameOutcome, updateGameOutcome, 
         chainId, updateChainId,
         awaitingContract, setAwaitingContract,
@@ -53,7 +59,13 @@ export function AuthProvider({ children }) {
         userBalance, setUserBalance,
         requestId, setRequestId,
         dealerCardsTemp, setDealerCardsTemp,
-        playerCardsTemp, setPlayerCardsTemp }}>
+        playerCardsTemp, setPlayerCardsTemp,
+        gameOutcomeTemp, setGameOutcomeTemp,
+        payoutAmount, setPayoutAmount,
+        awaitingContractMessage, setAwaitingContractMessage,
+        gameHist, setGameHist,
+        playingWithAI, setPlayingWithAI,
+        recommendation, setRecommendation }}>
             {children}
         </AuthContext.Provider>
     );

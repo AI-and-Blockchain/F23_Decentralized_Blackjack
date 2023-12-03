@@ -7,7 +7,7 @@ export async function getRequestId(account) {
         },
         body: JSON.stringify({ account: account })
       });
-
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -21,5 +21,6 @@ export async function getRequestId(account) {
       }
     } catch (error) {
       console.error('Error calling the smart contract:', error);
+      console.log(error);
     }
   }

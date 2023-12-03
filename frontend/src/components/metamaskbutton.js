@@ -9,6 +9,8 @@ import { checkGameHistory } from './checkGameHistory';
 import gameABI from './../pages/api/gameABI.json';
 import requestIdsForUser from './../pages/api/requestIdsForUser';
 import { getRequestId } from './getRequestId';
+import { mapOutcome } from './outcomeMapper';
+
 const MetaMaskButton = () => {
   const { userAddress, signIn,
     betAmount, setBetAmount,
@@ -18,7 +20,11 @@ const MetaMaskButton = () => {
     verified, setVerified, setUserBalance,
     requestId, setRequestId,
     dealerCardsTemp, setDealerCardsTemp,
-    playerCardsTemp, setPlayerCardsTemp } = useAuth();
+    playerCardsTemp, setPlayerCardsTemp,
+    gameOutcomeTemp, setGameOutcomeTemp,
+    setPayoutAmount, awaitingContractMessage, 
+    setAwaitingContractMessage, setGameHist,
+    playingWithAI, setPlayingWithAI } = useAuth();
 
   const desiredChainId = '0xAA36A7';
   const verifyAddr = '0xB04bB44A685589EcCbC3Fc3215d4BD5F924c8dFe';
@@ -158,6 +164,7 @@ const MetaMaskButton = () => {
   function hexArrayToIntArray(array) {
     return array.map(item => parseInt(item.hex, 16));
   }
+  
 
   async function signInWithMetaMask() {
     setAwaitingContract(true);
@@ -169,15 +176,17 @@ const MetaMaskButton = () => {
         setCheckingVerified(true);
         let verifiedData = await checkVerified(address);
         let balance = await checkBalance(address);
-        console.log(verifiedData);
         setVerified(verifiedData);
+        console.log("Balance");
         console.log(balance);
         if (verifiedData) {
+          setUserBalance(parseInt(balance.hex, 16));
           console.log("User is verified, fetching the game state");
+          console.log(address);
           let reqId = await getRequestId(address);
 
           //console.log("Request Id: ", reqId);
-          if (reqId.length != 0) {
+          if (reqId && reqId.length != 0) {
             console.log("Last Request Id: ", reqId[reqId.length - 1]);
             setRequestId(reqId[reqId.length - 1].hex);
             console.log("MM checkGameState:");
@@ -185,13 +194,17 @@ const MetaMaskButton = () => {
             const gameState = await checkGameState(reqId);
             console.log("Game State:");
             console.log(JSON.stringify(gameState));
+            const gameHist = await checkGameHistory(address);
+            console.log("Game Hist:");
+            console.log(gameHist);
+            setGameHist(JSON.stringify(gameHist));
             if (gameState) {
-              console.log(gameState[2][0]);
-              if (gameState[2][0] == "Game in progress") {
-                setGameState(true);
-                console.log(gameState[3][0]);
+              console.log(gameState[3][0]);
                 console.log("Bet Amount:", parseInt(gameState[3][0].hex, 16));
                 setBetAmount(parseInt(gameState[3][0].hex, 16));
+                if(parseInt(gameState[3][0].hex,16)==0){
+                  setPlayingWithAI(true);
+                }
                 console.log(gameState[0][0]);
                 console.log(hexArrayToIntArray(gameState[0]));
                 console.log(gameState[1]);
@@ -202,11 +215,30 @@ const MetaMaskButton = () => {
                 }
                 setPlayerCardsTemp(hexArrayToIntArray(gameState[0][0]));
                 setDealerCardsTemp(dealerHand);
+              console.log(gameState[2][0]);
+              if (gameState[2][0] == "Game in progress") {
+                setGameState(true);
+                setAwaitingContractMessage("Loading Current Game...");
+              } else if (gameState[2][0] == "Player bust" ){
+                setGameState(true);
+                setAwaitingContractMessage("Loading Previous Game...");
+                console.log(gameHist);
+                const lastGame = JSON.parse(gameHist[gameHist.length-1]);
+                console.log(lastGame);
+                const gameOutcome = lastGame.outcome.status;
+                console.log(gameOutcome);
+                setGameOutcomeTemp("Dealer Win");
+                setPayoutAmount(0);
+                const dealerHandFirstCard = lastGame.dealerHand;
+                console.log("Dealer hand to be added:");
+                console.log(lastGame.dealerHand);
+                // const newDealerCards = await addCardsToDealer(generateCardSets(gameHist[gameHist.length-1].dealerHand));
+              } else if (gameState[2][0]== "Game ended"){
+                setBetAmount(0);
               }
             }
           }
         }
-        setUserBalance(parseInt(balance.hex, 16));
       } catch (error) {
         console.error('Error signing in with MetaMask', error);
       }

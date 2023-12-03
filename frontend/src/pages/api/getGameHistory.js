@@ -18,17 +18,20 @@ export default async function handler(req, res) {
     }
 
     // Contract Information
-    const contractAddress = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
+    const contractAddress = "0x2C389764F41b03e35bCbC1Bb5E6D5Ef74df4084d";
 
     // Create a contract instance
     const contract = new ethers.Contract(contractAddress, gameABI, provider);
 
     // Call the verifyAge function from your contract
-    const response = await contract.getGameHistory(req.body.account);
+    console.log("Sending with name:");
+    console.log(req.body.name);
+    const response = await contract.getGameHistory(req.body.name);
     //let response = "wahoo";
     // Send back the response
     res.status(200).json({ success: true, data: response });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ success: false, error: error.message });
   }
 }

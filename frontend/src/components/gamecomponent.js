@@ -20,6 +20,7 @@ import { checkGameHistory } from './checkGameHistory';
 import { useAuth } from './authprovider';
 import { useState, useEffect } from 'react';
 import { getRequestId } from './getRequestId';
+import { mapOutcome } from './outcomeMapper';
 
 const GameComponent = () => {
 
@@ -33,14 +34,18 @@ const GameComponent = () => {
         userBalance, setUserBalance,
         requestId, setRequestId,
         dealerCardsTemp, setDealerCardsTemp,
-        playerCardsTemp, setPlayerCardsTemp
+        playerCardsTemp, setPlayerCardsTemp,
+        gameOutcomeTemp, setGameOutcomeTemp,
+        payoutAmount, setPayoutAmount,
+        setAwaitingContractMessage, awaitingContractMessage,
+        gameHist, setGameHist,
+        playingWithAI, setPlayingWithAI,
+        recommendation, setRecommendation
     } = useAuth();
 
     const [hasStood, setHasStood] = useState(false);
     const [playerStatus, setPlayerStatus] = useState("");
     const [dealerStatus, setDealerStatus] = useState("");
-    const [gameOutcomeTemp, setGameOutcomeTemp] = useState("");
-    const [payoutAmount, setPayoutAmount] = useState(0);
     const [month, setMonth] = useState('');
     const [day, setDay] = useState('');
     const [year, setYear] = useState('');
@@ -49,6 +54,8 @@ const GameComponent = () => {
     const [sellingBJT, setSellingBJT] = useState(0);
     const [dealerCards, setDealerCards] = useState([]);
     const [playerCards, setPlayerCards] = useState([]);
+    const [canInsure, setCanInsure] = useState([]);
+    const contractAddressGame = "0x2C389764F41b03e35bCbC1Bb5E6D5Ef74df4084d";
 
     const calculateAge = () => {
         if (!year || !month || !day) return;
@@ -193,14 +200,14 @@ const GameComponent = () => {
 
     function generateCardSets(hand) {
         const suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
-        const faceCards = ['Jack', 'Queen', 'King'];
+        const faceCardValues = { 11: 'Jack', 12: 'Queen', 13: 'King' };
 
         let usedCombinations = new Set(); // Track used combinations
 
         // Function to generate a unique combination for a card
         function generateUniqueCombination(card) {
             let shuffledSuits = suits.sort(() => Math.random() - 0.5);
-            if (card == -1) {
+            if (card == -1 || card == 0) {
                 return 'Hidden';
             }
 
@@ -215,25 +222,16 @@ const GameComponent = () => {
             }
 
             for (let suit of shuffledSuits) {
-                let cardLabel = card === 10 ? '10' : card;
+                let cardLabel = card;
+                // Check if the card is a face card and replace the number with the corresponding face
+                if (faceCardValues[card]) {
+                    cardLabel = faceCardValues[card];
+                }
                 let combination = `${cardLabel} of ${suit}`;
 
                 if (!usedCombinations.has(combination)) {
                     usedCombinations.add(combination);
                     return combination;
-                }
-            }
-
-            // If 10, try Jack, Queen, King
-            if (card === 10) {
-                for (let face of faceCards) {
-                    for (let suit of shuffledSuits) {
-                        let combination = `${face} of ${suit}`;
-                        if (!usedCombinations.has(combination)) {
-                            usedCombinations.add(combination);
-                            return combination;
-                        }
-                    }
                 }
             }
 
@@ -274,9 +272,37 @@ const GameComponent = () => {
             ));
         }
         setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
         const playerVal = calculateHandValue(updatedPlayerCards);
         if (playerVal > 21) {
-            setPlayerStatus("Bust");
+            if (!gameOutcomeTemp) {
+                setPlayerStatus("Bust");
+                setAwaitingContract(true);
+                setGameOutcomeTemp("Player Bust");
+                setRecommendation("");
+                // setUserBalance(userBalance - betAmount);
+                // const gameHist = await checkGameHistory(userAddress);
+                // console.log(gameHist);
+                // const prevRound = JSON.parse(gameHist[gameHist.length - 1]);
+                // const gameOutcome = prevRound.outcome.status;
+                // console.log(gameOutcome);
+                // const dealerHandFirstCard = prevRound.dealerHand.shift();
+                // console.log("Dealer hand to be added:");
+                // console.log(prevRound.dealerHand);
+                // const newDealerCards = await addCardsToDealer(generateCardSets(prevRound.dealerHand));
+                // if (dealerValue > 21) {
+                //     setDealerStatus("Bust");
+                //     setGameOutcomeTemp("Tie Game")
+                //     setPayoutAmount(prevRound.outcome.payout);
+                //     setUserBalance(userBalance + prevRound.outcome.payout);
+                // } else {
+                //     setGameOutcomeTemp("Player bust");
+                //     setUserBalance(userBalance - betAmount);
+                // }
+                setAwaitingContract(false);
+                setAwaitingContractMessage("Awaiting Contract Response...");
+
+            }
         }
         return updatedPlayerCards;
     };
@@ -287,28 +313,43 @@ const GameComponent = () => {
             const cardName = cardNames[i];
             const imageName = cardName.toLowerCase().replace(/\s+/g, '_') + '.png';
 
-            if (cardName !== "Hidden" || updatedDealerCards.length == 1) {
-                const newCard = {
-                    img: `/images/cards/${imageName}`,
-                    title: cardName,
-                    animating: true
-                };
+            const newCard = {
+                img: `/images/cards/${imageName}`,
+                title: cardName,
+                animating: true
+            };
 
-                setDealerCards(prevDealerCards => [...prevDealerCards, newCard]);
-                updatedDealerCards.push(newCard);
-                const cardTitles = [...dealerCards, newCard].map(card => card.title);
+            setDealerCards(prevDealerCards => [...prevDealerCards, newCard]);
+            updatedDealerCards.push(newCard);
+            const cardTitles = [...dealerCards, newCard].map(card => card.title);
 
-                setAwaitingContract(true);
+            setAwaitingContract(true);
 
-                await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-                setDealerCards(prevDealerCards => prevDealerCards.map((card, index) =>
-                    index === prevDealerCards.length - 1 ? { ...card, animating: false } : card
-                ));
-            }
+            setDealerCards(prevDealerCards => {
+
+                let filteredCards;
+                if (dealerCards.length == 2 && dealerCards[0] != 0) {
+                    filteredCards = prevDealerCards.filter(card => card.title !== "Hidden");
+                } else {
+                    filteredCards = prevDealerCards;
+                    if (dealerCards[0]==1 && dealerCards.length == 2){
+                        setCanInsure(true);
+                    } else {
+                        setCanInsure(false);
+                    }
+                }
+                return filteredCards.map((card, index) =>
+                    index === filteredCards.length - 1 ? { ...card, animating: false } : card
+                );
+            });
+
         }
         setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
         const dealerVal = calculateHandValue(updatedDealerCards);
+        setDealerValue(dealerVal);
         if (dealerVal > 21) {
             setDealerStatus("Bust");
         }
@@ -318,36 +359,34 @@ const GameComponent = () => {
     // Runs when loading a new game
     useEffect(() => {
         const getValue = async () => {
+            console.log(dealerCardsTemp);
             const newPlayerCards = await addCardsToPlayer(generateCardSets(playerCardsTemp));
             const newDealerCards = await addCardsToDealer(generateCardSets(dealerCardsTemp));
-            console.log(playerCardsTemp);
-            console.log("New player + dealer cards");
-            console.log(newPlayerCards);
-            console.log(newDealerCards);
+
+            
             setPlayerValue(calculateHandValue(newPlayerCards));
             setDealerValue(calculateHandValue(newDealerCards));
+            if(calculateHandValue(newPlayerCards) == 21){
+                setGameOutcomeTemp("Player Blackjack");
+                setRecommendation("");
+            }
+        }
+        const checkAi = async() => {
+            await getAiRecommendation();
         }
         if (gameInProgress && playerCardsTemp.length != 0) {
-            console.log("UseEffect");
-            console.log("Player Cards");
-            console.log(playerCardsTemp);
-            console.log("Dealer Cards:");
-            console.log(dealerCardsTemp);
+
+            
             if (playerCardsTemp) {
-                console.log(generateCardSets(playerCardsTemp))
-                console.log(generateCardSets(dealerCardsTemp))
                 getValue();
                 setPlayerCardsTemp([]);
                 setDealerCardsTemp([]);
+                checkAi();
             }
         }
 
     }, [playerCardsTemp, dealerCardsTemp])
 
-
-    const convertCardName = (cardName) => {
-        return cardName.toLowerCase().replace(/\s+/g, '_');
-    }
 
     const calculateHandValue = (hand) => {
         let totalValue = 0;
@@ -391,7 +430,39 @@ const GameComponent = () => {
 
     function hexArrayToIntArray(array) {
         return array.map(item => parseInt(item.hex, 16));
-      }
+    }
+
+    async function getAiRecommendation(){
+        if (playingWithAI){
+            try {
+                const response = await fetch('https://72fd-2603-7081-4e05-2cc4-00-1005.ngrok.io/get_optimal_action', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+    
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+    
+                const result = await response.json();
+                console.log(result);
+                if (result) {
+                    console.log('Response ai:', result);
+                    setRecommendation(result.optimal_action);
+                    console.log(result.optimal_action);
+                } else {
+                    console.error('Error in ai call:', result.error);
+                }
+            } catch (error) {
+                console.error('Error calling the smart contract:', error);
+            }
+        } else {
+            console.log("Not playing with ai");
+        }
+    }
+
 
 
     async function checkGameState(requestId) {
@@ -421,7 +492,8 @@ const GameComponent = () => {
     }
 
     async function hit() {
-        const contractAddressGame = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
+        console.log("Hitting");
+        setRecommendation("");
         setAwaitingContract(true);
         if (!requestId) {
             console.log("Invalid Request Id");
@@ -432,49 +504,75 @@ const GameComponent = () => {
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             const signer = provider.getSigner();
             const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
-            console.log(requestId);
+            setAwaitingContractMessage("Drawing New Card...");
             const response = await contract.hit(requestId, 0);
-            console.log('Response from contract:', response);
-
             const receipt = await response.wait();
-            console.log("GC request id:");
-            console.log(requestId);
+
+
             const gameState = await checkGameState([requestId]);
-            console.log("Game State:");
             console.log(JSON.stringify(gameState));
             if (gameState) {
                 const playerHand = gameState[0][0];
-                console.log([playerHand[playerHand.length - 1]]);
-                console.log("New Card: ");
-                console.log("Generating card out of: ");
-                console.log([playerHand[playerHand.length - 1]][0]);
-                console.log(generateCardSets(hexArrayToIntArray([playerHand[playerHand.length - 1]])));
+
                 const newCard = await addCardsToPlayer(generateCardSets(hexArrayToIntArray([playerHand[playerHand.length - 1]])));
-                console.log(gameState[2][0]);
-                console.log(gameState[3][0]);
-                console.log("Bet Amount:", parseInt(gameState[3][0].hex, 16));
+
                 setBetAmount(parseInt(gameState[3][0].hex, 16));
                 setPlayerValue(calculateHandValue(newCard));
-                // console.log(gameState[0][0]);
-                // console.log(hexArrayToIntArray(gameState[0]));
-                // console.log(gameState[1]);
-                // console.log(hexArrayToIntArray(gameState[1]));
-                // let dealerHand = hexArrayToIntArray(gameState[1]);
-                // if (dealerHand.length == 1) {
-                //     dealerHand.push(-1);
-                // }
-                // setPlayerCardsTemp(hexArrayToIntArray(gameState[0][0]));
-                // setDealerCardsTemp(dealerHand);
-            }
 
-            // const gameState = await checkGameState(reqId);
-            // const playerHand = gameState[0][0];
-            // console.log([gameState[0][0][gameState[0][0].length - 1]]);
-            // addCardsToPlayer(generateCardSets([gameState[0][0][gameState[0][0].length - 1]])[0])
+                if (calculateHandValue(newCard) == 21) {
+
+                    stand();
+                    setPlayingWithAI(false);
+                } else {
+                    if (playingWithAI){
+                        await getAiRecommendation(); 
+                    }
+                }
+
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+
+        setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
+    }
+
+    async function stand() {
+        console.log("Standing");
+        setAwaitingContract(true);
+        setPlayerStatus("Stand");
+        if (!requestId) {
+            console.log("Invalid Request Id");
+            return;
+        }
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
+            const response = await contract.stand(requestId, 0);
+
+            const receipt = await response.wait();
+
+            const gameState = await checkGameState([requestId]);
+
+            const dealerHandFirstCard = gameState[1].shift();
+            const newDealerCards = await addCardsToDealer(generateCardSets(hexArrayToIntArray(gameState[1])));
+            const gameHist = await checkGameHistory(userAddress);
+            setGameHist(JSON.stringify(gameHist));
+            const lastGame = JSON.parse(gameHist[gameHist.length - 1]);
+            const gameOutcome = lastGame.outcome.status;
+            setGameOutcomeTemp(mapOutcome(gameOutcome));
+            setRecommendation("");
+            setPayoutAmount(lastGame.outcome.payout);
+            setUserBalance(userBalance + lastGame.outcome.payout);
+
         } catch (error) {
             console.error('Error:', error);
         }
         setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
     }
 
 
@@ -488,12 +586,21 @@ const GameComponent = () => {
             const contract = new ethers.Contract(contractAddress, contractABI, signer);
 
             const response = await contract.verifyAge(age);
-            console.log('Response from contract:', response);
             setVerified(response);
+            if(response==false){
+                alert("Could not verify. User must be 21 years or older, and cannot be banned");
+            } else {
+                const gameHist = await(checkGameHistory(userAddress));
+                setGameHist(JSON.stringify(gameHist));
+                const balance = await checkBalance(userAddress);
+                setUserBalance(parseInt(balance.hex, 16));
+            }
         } catch (error) {
             console.error('Error:', error);
         }
         setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
+
     }
 
 
@@ -506,21 +613,18 @@ const GameComponent = () => {
             const signer = provider.getSigner();
             const contract = new ethers.Contract(contractAddress, cageABI, signer);
 
-            //const ethAmount = Math.round(buyingBJT*ethConversion*10000)/10000;
-            //const amountInWei = ethers.utils.parseEther(String(buyingBJT));
-            //console.log(amountInWei);
-            //const response = await contract.deposit({value: amountInWei});
             let amountInWei = String(buyingBJT);
+            setAwaitingContractMessage("Exchanging ETH for BJT...");
             const response = await contract.exchangeETHforBJT({ value: amountInWei });
             await response.wait();
             const balance = await checkBalance(userAddress);
-            console.log('Response from contract:', response);
-            console.log(parseInt(balance.hex, 16));
+
             setUserBalance(parseInt(balance.hex, 16));
         } catch (error) {
             console.error('Error:', error);
         }
         setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
     }
 
 
@@ -536,30 +640,76 @@ const GameComponent = () => {
 
             const contractBJT = new ethers.Contract(contractAddressBJT, bjtABI, signer);
 
-            //const ethAmount = Math.round(buyingBJT*ethConversion*10000)/10000;
-            //const amountInWei = ethers.utils.parseEther(String(buyingBJT));
-            //console.log(amountInWei);
-            //const response = await contract.deposit({value: amountInWei});
-            // let amountInWei = String(sellingBJT);
+            setAwaitingContractMessage("Waiting For Allowance Permissions...");
             const allowance = await contractBJT.approve(contractAddressCage, sellingBJT);
             await allowance.wait();
-            console.log(allowance);
+            setAwaitingContractMessage("Exchanging BJT for ETH...");
             const response = await contract.exchangeBJTforETH(userAddress, sellingBJT);
             await response.wait();
             const balance = await checkBalance(userAddress);
-            console.log('Response from contract:', response);
-            console.log(parseInt(balance.hex, 16));
             setUserBalance(parseInt(balance.hex, 16));
         } catch (error) {
             console.error('Error:', error);
         }
         setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
+
     }
 
 
+    async function checkAndProcessGameState(reqId) {
+        const gameState = await checkGameState(reqId);
+        let playerHand = hexArrayToIntArray(gameState[0][0]);
+    
+        // Check if player's hand is [0,0]
+        if (playerHand.length === 2 && playerHand[0] === 0 && playerHand[1] === 0) {
+            console.log("Player's hand is [0,0], waiting for 10 seconds...");
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait for 10 seconds
+            return checkAndProcessGameState(reqId); // Call the function again
+        }
+    
+        setGameState(true);
+        setBetAmount(parseInt(gameState[3][0].hex, 16));
 
-    async function placeBet() {
-        const contractAddressGame = "0xda7a42dE9a58EDa74DCa4366b951786dd675bBd4";
+        let dealerHand = hexArrayToIntArray(gameState[1]);
+        if (dealerHand.length == 1) {
+            dealerHand.push(-1);
+        }
+        setPlayerCardsTemp(playerHand);
+        setDealerCardsTemp(dealerHand);
+        setUserBalance(userBalance - betAmount);
+        setBetAmount(betAmount);
+        setGameState(true);
+    }
+
+    async function checkVerified(accountVal) {
+        try {
+          const response = await fetch('/api/checkVerified', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ account: accountVal })
+          });
+    
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+    
+          const result = await response.json();
+          if (result.success) {
+            console.log('Response from contract:', result.data);
+            return result.data;
+          } else {
+            console.error('Error in contract call:', result.error);
+          }
+        } catch (error) {
+          console.error('Error calling the smart contract:', error);
+        }
+      }
+
+    async function insurance() {
+
         const contractAddressBJT = "0x6AF1a909Fdc2BbEdF8727D7482fa66607f6F464B";
         const contractAddressCage = "0xeD6a34A78bdEb71E33D9cD829917d34BF318C90a";
 
@@ -572,16 +722,78 @@ const GameComponent = () => {
             const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
 
             const contractBJT = new ethers.Contract(contractAddressBJT, bjtABI, signer);
-            console.log("Starting Bet Contract");
+
+            const response = await contract.takeInsurance(requestId);
+
+            await response.wait();
+
+            console.log('Response from contract:', response);
+            
+            await checkAndProcessGameState(reqId);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
+    }
+
+
+    async function surrender() {
+        console.log("Surrendering");
+        setAwaitingContract(true);
+        if (!requestId) {
+            console.log("Invalid Request Id");
+            return;
+        }
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
+            const response = await contract.surrender(requestId);
+            setGameOutcomeTemp("Surrender");
+            setRecommendation("");
+            setUserBalance(userBalance + Math.floor(betAmount/2));
+            const gameHist = await checkGameHistory(userAddress);
+            setGameHist(JSON.stringify(gameHist));
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
+        setPlayingWithAI(false);
+    }
+
+    async function placeBet() {
+        const contractAddressBJT = "0x6AF1a909Fdc2BbEdF8727D7482fa66607f6F464B";
+        const contractAddressCage = "0xeD6a34A78bdEb71E33D9cD829917d34BF318C90a";
+
+        setAwaitingContract(true);
+        setPlayingWithAI(false);
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            let verifiedData = await checkVerified(userAddress);
+            if (!verifiedData){
+                alert("User is no longer verified");
+                return;
+            }
+            // Working as of 12:32pm nov 10
+            const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
+
+            const contractBJT = new ethers.Contract(contractAddressBJT, bjtABI, signer);
+            setAwaitingContractMessage("Waiting For Allowance Permissions...");
             const allowance = await contractBJT.approve(contractAddressGame, sellingBJT);
             await allowance.wait();
-            console.log("Approval Confirmed");
 
+            setAwaitingContractMessage("Placing Bet...");
             const response = await contract.placeBet(betAmount);
 
             await response.wait();
 
             console.log('Response from contract:', response);
+            setAwaitingContractMessage("Getting Random Seed (1/2)...");
             let reqId = await getRequestId(userAddress);
 
             console.log("Request Id: ", reqId);
@@ -589,33 +801,56 @@ const GameComponent = () => {
 
             setRequestId(reqId[reqId.length - 1].hex);
             // console.log(parseInt(balance.hex, 16));
-            const gameState = await checkGameState(reqId[reqId.length - 1].hex);
-            console.log("Game State:");
-            console.log(JSON.stringify(gameState));
-            setGameState(true);
-            console.log(gameState[3][0]);
-            console.log("Bet Amount:", parseInt(gameState[3][0].hex, 16));
-            setBetAmount(parseInt(gameState[3][0].hex, 16));
-            console.log(gameState[0][0]);
-            console.log(hexArrayToIntArray(gameState[0]));
-            console.log(gameState[1]);
-            console.log(hexArrayToIntArray(gameState[1]));
-            let dealerHand = hexArrayToIntArray(gameState[1]);
-            if (dealerHand.length == 1) {
-                dealerHand.push(-1);
-            }
-            setPlayerCardsTemp(hexArrayToIntArray(gameState[0][0]));
-            setDealerCardsTemp(dealerHand);
-            setUserBalance(userBalance - betAmount);
-            setBetAmount(betAmount);
-            setGameState(true);
+            setAwaitingContractMessage("Getting Random Seed (2/2)...");
+            await checkAndProcessGameState(reqId);
         } catch (error) {
             console.error('Error:', error);
         }
         setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
     }
 
+    async function placeBetZero() {
+        const contractAddressBJT = "0x6AF1a909Fdc2BbEdF8727D7482fa66607f6F464B";
+        const contractAddressCage = "0xeD6a34A78bdEb71E33D9cD829917d34BF318C90a";
+        setRecommendation("");
+        setAwaitingContract(true);
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            // Working as of 12:32pm nov 10
+            const contract = new ethers.Contract(contractAddressGame, gameABI, signer);
 
+            const contractBJT = new ethers.Contract(contractAddressBJT, bjtABI, signer);
+            // setAwaitingContractMessage("Waiting For Allowance Permissions...");
+            // const allowance = await contractBJT.approve(contractAddressGame, sellingBJT);
+            // await allowance.wait();
+
+            // setAwaitingContractMessage("Placing Bet...");
+            const response = await contract.placeBet(0);
+
+            await response.wait();
+
+            console.log('Response from contract:', response);
+            setAwaitingContractMessage("Getting Random Seed (1/2)...");
+            let reqId = await getRequestId(userAddress);
+
+            console.log("Request Id: ", reqId);
+            console.log("Last Request Id: ", reqId[reqId.length - 1]);
+
+            setRequestId(reqId[reqId.length - 1].hex);
+            // console.log(parseInt(balance.hex, 16));
+            setAwaitingContractMessage("Getting Random Seed (2/2)...");
+            setPlayingWithAI(true);
+            await checkAndProcessGameState(reqId);
+            await getAiRecommendation();
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        setAwaitingContract(false);
+        setAwaitingContractMessage("Awaiting Contract Response...");
+    }
 
     return (
         <Paper sx={{
@@ -634,7 +869,7 @@ const GameComponent = () => {
                             <Box style={containerStyle}>
                                 {dealerCards.map((card, index) => (
                                     <img
-                                        key={card.img} // assuming each card image is unique
+                                        key={card.img + index} // assuming each card image is unique
                                         src={card.img}
                                         alt={card.title}
                                         style={getCardStyle(index, card.animating)}
@@ -669,16 +904,13 @@ const GameComponent = () => {
                             <ActionButton variant="outlined" onClick={() => updateGameOutcome(gameOutcomeTemp)}>Continue</ActionButton>
                         </Box> :
                         <Box sx={{ display: 'flex', flexDirection: 'row', mt: 3 }}>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false} onClick={() => hit()}>Hit</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false} onClick={() => {
-                                setPlayerStatus("Stand")
-                                setAwaitingContract(true);
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' || playerStatus == 'Stand' ? true : false} onClick={() => hit()}>Hit</ActionButton>
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' || playerStatus == 'Stand' ? true : false} onClick={() => {
+                                stand();
                             }}>Stand</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false}>Double-Down</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false}>Insurance</ActionButton>
-                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' ? true : false} color="error" onClick={() => {
-                                setGameState(false)
-                                updateGameOutcome("Surrender")
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' || playerStatus == 'Stand' || !canInsure ? true : false} onClick={()=>insurance()}>Insurance</ActionButton>
+                            <ActionButton variant="outlined" disabled={awaitingContract || playerStatus == 'Bust' || playerStatus == 'Stand' ? true : false} color="error" onClick={() => {
+                                surrender()
                             }}>Surrender</ActionButton>
                         </Box>}
 
@@ -686,11 +918,12 @@ const GameComponent = () => {
             ) : gameOutcome ? (
                 <Box sx={{ display: 'flex', flexDirection: 'column', height: '80%', width: '100%', alignItems: 'center' }}>
                     <Typography variant="h2" style={titleStyle}>Decentralized Blackjack</Typography>
-                    {gameOutcome == "Surrender" || gameOutcome == "Dealer Win" || gameOutcome == "Dealer Blackjack" ?
+                    {gameOutcome == "Surrender" || gameOutcome == "Player Bust" || gameOutcome == "Dealer Win" || gameOutcome == "Dealer Blackjack" ?
                         (<Typography variant="h2" style={outcomeStyle} sx={{ mt: 3, color: '#ff7961' }}>{gameOutcome}</Typography>)
                         : (gameOutcome == "Player Win") || gameOutcome == "Player Blackjack" ? <>
                             <Typography variant="h2" style={outcomeStyle} sx={{ mt: 3, color: '#4caf50' }}>{gameOutcome}</Typography>
-                        </> :
+                        </> : gameOutcome == "Tie Game" ? <>
+                            <Typography variant="h2" style={outcomeStyle} sx={{ mt: 3 }}>{gameOutcome}</Typography></> :
                             <>
                                 <Typography variant="h2" style={outcomeStyle} sx={{ mt: 3, color: '#fdd7a6' }}>{gameOutcome}</Typography>
                             </>}
@@ -700,8 +933,10 @@ const GameComponent = () => {
                         clearHistory()
                         updateGameOutcome("")
                         setGameOutcomeTemp("")
-
+                        setPayoutAmount(0);
                         setAwaitingContract(false)
+                        setAwaitingContractMessage("Awaiting Contract Response...")
+                        setRecommendation("");
                     }}>Return Home</ActionButton>
                 </Box>
             ) :
@@ -723,7 +958,7 @@ const GameComponent = () => {
 
                             <Box sx={{ display: 'flex', flexDirection: 'row', mt: 3 }}>
                                 <ActionButton variant="outlined" onClick={() => placeBet()} disabled={awaitingContract ? true : false}>Play Blackjack</ActionButton>
-                                <ActionButton variant="outlined" disabled={betAmount == 0 && !awaitingContract ? false : true} onClick={() => setGameState(true)} >Play With AI Assistance</ActionButton>
+                                <ActionButton variant="outlined" disabled={betAmount == 0 && !awaitingContract ? false : true} onClick={() => placeBetZero()} >Play With AI Assistance</ActionButton>
                             </Box>
                             <Typography variant="h3" style={playTextStyle} sx={{ mt: 5, mb: 3 }}>Exchange Blackjack Token (BJT)</Typography>
                             <Box sx={{ display: 'flex' }}>
