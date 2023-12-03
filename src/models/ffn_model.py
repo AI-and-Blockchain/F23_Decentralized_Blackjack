@@ -50,7 +50,7 @@ class FFN_Model(nn.Module):
 		# feed input through all but last layer
 		# using ReLU as activation function
 		for l in self.layers[:-1]:
-			x = nn.ReLU(l(x))
+			x = F.relu(l(x))
 
 		# last layer use sigmoid as activation function
 		# output should be scalar from 0 to 1

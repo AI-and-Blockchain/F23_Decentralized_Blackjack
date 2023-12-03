@@ -6,6 +6,7 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import "./BJT.sol";
+import "./Authenticator.sol";
 
 contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
     using SafeMath for uint256;
@@ -19,6 +20,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
     uint32 numWords = 30;  // Adjusted for maximum of 10 random numbers (5 cards each for player and dealer)
     uint256[] public requestIds;
     uint256 public lastRequestId;
+    Authenticator private authenticator;
 
     event BetPlaced(address indexed player, uint256 amount);
     event PlayerAction(address indexed player, string action);
@@ -33,6 +35,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         bool hasStood;
         uint256 betAmount;
         string[] actions;
+        bool hasInsurance;
+        bool hasDoubledDown;
     }
     struct GameRequest {
         address player;
@@ -43,13 +47,6 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         uint256[] randomNumbers;
         bool gameEnded;
     }
-
-    // struct GameOutcome {
-    //     address player;
-    //     uint256[] playerHand;
-    //     uint256[] dealerHand;
-    //     string outcome;
-    // }
     struct Outcome {
         string status;
         uint256 payout;
@@ -65,6 +62,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
     mapping(uint256 => GameRequest) public gameRequests;
     mapping(address => GameOutcome[]) public gameHistories;
+    mapping(address => uint256[]) private userRequestIds;
+
 
     constructor(uint64 subscriptionId, address BJTAddr)
         VRFConsumerBaseV2(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625)
@@ -73,14 +72,17 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         COORDINATOR = VRFCoordinatorV2Interface(0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625);
         s_subscriptionId = subscriptionId;
         bjtToken = BlackJackToken(BJTAddr);
+        authenticator = Authenticator(0x13Be49565C126AD6aFe76dBd22b2Aa75670240C0);
     }
 
     function placeBet(uint256 betAmount) public {
+        require(authenticator.isVerified(msg.sender), "Player not verified");
         require(bjtToken.balanceOf(msg.sender) >= betAmount, "Insufficient BJT balance");
         require(bjtToken.allowance(msg.sender, address(this)) >= betAmount, "Blackjack contract not approved for the bet amount");
         bjtToken.transferFrom(msg.sender, address(this), betAmount);
 
         uint256 requestId = requestRandomWords();
+        userRequestIds[msg.sender].push(requestId);
         gameRequests[requestId].player = msg.sender;
         gameRequests[requestId].fulfilled = false;
         gameRequests[requestId].dealerCard = 0;
@@ -93,7 +95,9 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
             cards: new uint256[](2),
             hasStood: false,
             betAmount: betAmount,
-            actions: new string[](0)
+            actions: new string[](0),
+            hasInsurance: false,
+            hasDoubledDown: false
         });
         gameRequests[requestId].playerHands.push(newHand);
 
@@ -115,41 +119,38 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
         emit CardsDealt(request.player, request.playerHands[0].cards, request.dealerCard);
         if (calculateHandValue(request.playerHands[0].cards) == 21) {
+            request.gameEnded = true;
             playDealerHand(_requestId);
-            finalizeHand(_requestId, 0);
         }
     }
 
     // Implement split functionality
     function split(uint256 requestId) public {
-        GameRequest storage request = gameRequests[requestId];
-        require(request.player == msg.sender, "Not the player's game");
-        require(!request.gameEnded, "Game already ended");
-        require(request.fulfilled, "Game not yet started");
+        // GameRequest storage request = gameRequests[requestId];
+        // require(request.player == msg.sender, "Not the player's game");
+        // require(!request.gameEnded, "Game already ended");
 
-        // Validate split conditions
-        require(request.playerHands.length == 1, "Splitting not possible");
-        require(request.playerHands[0].cards.length == 2, "Cannot split");
-        require(request.playerHands[0].cards[0] == request.playerHands[0].cards[1], "Cards are not the same for splitting");
+        // // Validate split conditions
+        // require(request.playerHands[0].cards.length == 2, "Cannot split");
+        // require(request.playerHands[0].cards[0] == request.playerHands[0].cards[1], "Cards are not the same for splitting");
 
-        // Ensure the player has enough BJT tokens for the additional bet
-        uint256 additionalBet = request.playerHands[0].betAmount;
-        require(bjtToken.balanceOf(msg.sender) >= additionalBet, "Insufficient BJT balance for split");
-        bjtToken.transferFrom(msg.sender, address(this), additionalBet);
+        // // Ensure the player has enough BJT tokens for the additional bet
+        // uint256 additionalBet = request.playerHands[0].betAmount;
+        // require(bjtToken.balanceOf(msg.sender) >= additionalBet, "Insufficient BJT balance for split");
+        // bjtToken.transferFrom(msg.sender, address(this), additionalBet);
 
-        uint256 splitCard = request.playerHands[0].cards[0];
-        request.playerHands[0].cards[1] = getCard(requestId);
+        // uint256 splitCard = request.playerHands[0].cards[0];
+        // request.playerHands[0].cards[1] = getCard(requestId);
 
-        PlayerHand memory newHand = PlayerHand({
-            cards: new uint256[](2),
-            hasStood: false,
-            betAmount: additionalBet,
-            actions: new string[](0)
-        });
-        newHand.cards[0] = splitCard;
-        newHand.cards[1] = getCard(requestId);
-        request.playerHands.push(newHand);
-        
+        // PlayerHand memory newHand = PlayerHand({
+        //     cards: new uint256[](2),
+        //     hasStood: false,
+        //     betAmount: additionalBet,
+        //     actions: new string[](0)
+        // });
+        // newHand.cards[0] = splitCard;
+        // newHand.cards[1] = getCard(requestId);
+        // request.playerHands.push(newHand);
     }
 
 
@@ -169,12 +170,11 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
 
         if (handValue > 21) {
             // Player busts
-            endGame(requestId, handIndex, "Player bust");
+            finalizeHand(requestId, 0);
         } else if (handValue == 21) {
             // If player hits 21, play dealer's hand and end the game
             stand(requestId, handIndex); // Mark the player's hand as stood
             playDealerHand(requestId);   // Play out the dealer's hand
-            finalizeHand(requestId, handIndex); // Finalize the hand
         }
     }
 
@@ -231,7 +231,7 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
             outcome = "Push";
         }
 
-        endGame(requestId, handIndex, outcome);
+        endGame(requestId, handIndex, outcome,false);
     }
 
     function getCard(uint256 requestId) private returns (uint256) {
@@ -269,36 +269,48 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         return totalValue;
     }
 
-    function endGame(uint256 requestId, uint256 handIndex, string memory outcome) internal {
+    function endGame(uint256 requestId, uint256 handIndex, string memory outcome, bool isSurrender) internal {
         GameRequest storage request = gameRequests[requestId];
         PlayerHand storage hand = request.playerHands[handIndex];
-
-        // Calculate the dealer's and player's hand value
+        uint256 payout;
         uint256 dealerHandValue = calculateHandValue(request.dealerCards);
         uint256 playerHandValue = calculateHandValue(hand.cards);
-
-        // Determine the game outcome and handle BJT token transfer accordingly
-        if (playerHandValue <= 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
-            // Player wins - transfer winnings in BJT tokens
-            uint256 winnings = hand.betAmount.mul(2); // Assuming the player receives double the bet amount
-            bjtToken.transfer(request.player, winnings);
-            outcome = "Player wins";
-        } else if (playerHandValue > 21 || (dealerHandValue <= 21 && dealerHandValue > playerHandValue)) {
-            // Player loses - BJT tokens remain in the contract
-            outcome = "Player loses";
+        bool isPlayerBlackjack = (hand.cards.length == 2 && playerHandValue == 21);
+        bool isDealerBlackjack = (request.dealerCards.length == 2 && dealerHandValue == 21);
+        if (isSurrender) {
+            // In case of surrender, refund half of the bet.
+            uint256 refundAmount = hand.betAmount / 2;
+            bjtToken.transfer(request.player, refundAmount);
+            outcome = "Player surrender";
+            payout = refundAmount; // Half the bet amount as the player surrendered
         } else {
-            // Push - Player gets their bet back
-            bjtToken.transfer(request.player, hand.betAmount);
-            outcome = "Push";
+            if (hand.hasInsurance && isDealerBlackjack) {
+                uint256 insurancePayout = hand.betAmount / 2 * 2; // Insurance bet is half of the original bet and pays 2:1
+                bjtToken.transfer(request.player, insurancePayout);
+                payout += insurancePayout;
+                }
+            if (isPlayerBlackjack && !isDealerBlackjack) {
+                uint256 blackjackPayout = hand.betAmount * 3 / 2;
+                bjtToken.transfer(request.player, blackjackPayout);
+                outcome = "Player blackjack";
+                payout = blackjackPayout;
+            } else if (playerHandValue < 21 && (playerHandValue > dealerHandValue || dealerHandValue > 21)) {
+                uint256 winnings = hand.betAmount * 2;
+                bjtToken.transfer(request.player, winnings);
+                outcome = "Player wins";
+                payout = winnings;
+            } else if (playerHandValue > 21 || (dealerHandValue <= 21 && dealerHandValue > playerHandValue)) {
+                outcome = "Player loses";
+                payout = 0;
+            } else if (playerHandValue == dealerHandValue) {
+                bjtToken.transfer(request.player, hand.betAmount);
+                outcome = "Push";
+                payout = hand.betAmount;
+            } else {
+                outcome = "Player loses";
+                payout = 0;
+            }
         }
-         uint256 payout;
-        if (keccak256(bytes(outcome)) == keccak256(bytes("Player wins"))) {
-            payout = hand.betAmount * 2;
-        } else {
-            payout = 0;
-        }
-
-
         // Log the result of this hand
         GameOutcome memory result = GameOutcome({
             round: requestId,
@@ -327,6 +339,35 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
             emit GameEnded(request.player, outcome);
         }
     }
+    function takeInsurance(uint256 requestId) public {
+        GameRequest storage request = gameRequests[requestId];
+        PlayerHand storage hand = request.playerHands[0]; // assuming single hand for simplicity
+        require(request.dealerCard == 1, "Dealer's upcard is not an Ace"); // 1 represents an Ace
+        require(hand.betAmount > 0 && !hand.hasInsurance, "Cannot take insurance");
+        uint256 insuranceBet = hand.betAmount / 2;
+        require(bjtToken.balanceOf(msg.sender) >= insuranceBet, "Insufficient BJT balance for insurance");
+        bjtToken.transferFrom(msg.sender, address(this), insuranceBet);
+        request.playerHands[0].actions.push("insurance");
+        hand.hasInsurance = true;
+    }
+    // function doubleDown(uint256 requestId) public {
+    //     GameRequest storage request = gameRequests[requestId];
+    //     PlayerHand storage hand = request.playerHands[0]; // assuming single hand for simplicity
+    //     require(hand.cards.length == 2, "Can only double down on first two cards");
+    //     require(!hand.hasDoubledDown, "Already doubled down");
+    //     uint256 additionalBet = hand.betAmount;
+    //     require(bjtToken.balanceOf(msg.sender) >= additionalBet, "Insufficient BJT balance to double down");
+    //     bjtToken.transferFrom(msg.sender, address(this), additionalBet);
+
+    //     hand.betAmount *= 2;
+    //     hand.hasDoubledDown = true;
+
+    //
+    //     uint256 newCard = getCard(requestId);
+    //     hand.cards.push(newCard);
+    //     stand(requestId, 0);
+    // }
+
 
     function resetGame(uint256 requestId) internal {
         GameRequest storage request = gameRequests[requestId];
@@ -362,13 +403,11 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
     function surrender(uint256 requestId) public {
         GameRequest storage request = gameRequests[requestId];
         require(request.player == msg.sender, "Not the player's game");
-        require(request.playerHands.length == 1, "Surrender not allowed after split");
         require(request.playerHands[0].cards.length == 2, "Surrender only allowed as first action");
         require(!request.gameEnded, "Game already ended");
-        uint256 refundAmount = request.playerHands[0].betAmount / 2;
-        bjtToken.transfer(msg.sender, refundAmount);
         request.playerHands[0].actions.push("surrender");
-        endGame(requestId, 0, "Player surrender");
+        request.gameEnded = true;
+        endGame(requestId, 0, "Player surrender",true);
     }
 
     function getGameState(uint256 requestId) public view returns (uint256[][] memory playerHands, uint256[] memory dealerCards, string[] memory statuses,  uint256[] memory betSizes) {
@@ -463,5 +502,8 @@ contract BlackjackWithVRFv2 is VRFConsumerBaseV2, ConfirmedOwner {
         }
 
         return historyStrings;
+    }
+    function getRequestIdsForUser(address user) public view returns (uint256[] memory) {
+        return userRequestIds[user];
     }
 }
