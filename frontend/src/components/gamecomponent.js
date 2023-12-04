@@ -280,25 +280,6 @@ const GameComponent = () => {
                 setAwaitingContract(true);
                 setGameOutcomeTemp("Player Bust");
                 setRecommendation("");
-                // setUserBalance(userBalance - betAmount);
-                // const gameHist = await checkGameHistory(userAddress);
-                // console.log(gameHist);
-                // const prevRound = JSON.parse(gameHist[gameHist.length - 1]);
-                // const gameOutcome = prevRound.outcome.status;
-                // console.log(gameOutcome);
-                // const dealerHandFirstCard = prevRound.dealerHand.shift();
-                // console.log("Dealer hand to be added:");
-                // console.log(prevRound.dealerHand);
-                // const newDealerCards = await addCardsToDealer(generateCardSets(prevRound.dealerHand));
-                // if (dealerValue > 21) {
-                //     setDealerStatus("Bust");
-                //     setGameOutcomeTemp("Tie Game")
-                //     setPayoutAmount(prevRound.outcome.payout);
-                //     setUserBalance(userBalance + prevRound.outcome.payout);
-                // } else {
-                //     setGameOutcomeTemp("Player bust");
-                //     setUserBalance(userBalance - betAmount);
-                // }
                 setAwaitingContract(false);
                 setAwaitingContractMessage("Awaiting Contract Response...");
 

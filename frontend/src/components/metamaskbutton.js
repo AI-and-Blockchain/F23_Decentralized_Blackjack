@@ -135,32 +135,6 @@ const MetaMaskButton = () => {
   }
 
 
-  // async function getRequestId(account) {
-  //   try {
-  //     const response = await fetch('/api/requestIdsForUser', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({ account: account })
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error(`HTTP error! status: ${response.status}`);
-  //     }
-
-  //     const result = await response.json();
-  //     if (result.success) {
-  //       console.log('Response from contract:', result.data);
-  //       return result.data;
-  //     } else {
-  //       console.error('Error in contract call:', result.error);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error calling the smart contract:', error);
-  //   }
-  // }
-
   function hexArrayToIntArray(array) {
     return array.map(item => parseInt(item.hex, 16));
   }
@@ -232,7 +206,6 @@ const MetaMaskButton = () => {
                 const dealerHandFirstCard = lastGame.dealerHand;
                 console.log("Dealer hand to be added:");
                 console.log(lastGame.dealerHand);
-                // const newDealerCards = await addCardsToDealer(generateCardSets(gameHist[gameHist.length-1].dealerHand));
               } else if (gameState[2][0]== "Game ended"){
                 setBetAmount(0);
               }

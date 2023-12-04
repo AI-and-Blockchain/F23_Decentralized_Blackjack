@@ -32,12 +32,6 @@ const HistoryPanel = () => {
     if (gameHist.length != 0) {
       console.log(JSON.parse(gameHist));
     }
-    //  try {
-    //   console.log(JSON.parse(gameHist)); 
-
-    //  } catch (error) {
-    //   console.log(error);
-    //  }
   }, [gameHist]);
 
   return (
